@@ -5,7 +5,11 @@ $(document).ready(function () {
             url: "/adduser",
             method: "POST",
             success: function (response) {
-                $("#msg").html(response.msg);
+                if (response.msg) {
+                    $("#msg").html(response.msg);
+                } else {
+                    $("#msg").html(response.error);
+                }
             }
         });
     });
