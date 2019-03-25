@@ -4,6 +4,7 @@ var mongoose = require('mongoose');
 var db = mongoose.connection;
 var crypto = require('crypto');
 var bcrypt = require('bcryptjs');
+var nodemailer = require('nodemailer');
 
 /* Adding a user into the database*/
 router.post('/adduser', function (req, res, next) {
