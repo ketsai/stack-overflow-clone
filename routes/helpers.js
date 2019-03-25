@@ -58,5 +58,17 @@ module.exports = {
             });
             resolve(ret);
         });
+    },
+    //return the 10 most recently asked questions
+    recentQuestions: async function (req, res) {
+        return new Promise(async function (resolve, reject) {
+            var ret = [];
+            await db.collection('questions').find().sort({ timestamp: -1 }).limit(10).forEach(function (question, err) {
+                if (question) {
+                    ret.push(question);
+                }
+            });
+            resolve(ret);
+        });
     }
 }

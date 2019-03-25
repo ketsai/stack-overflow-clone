@@ -58,7 +58,8 @@ router.post('/adduser', function (req, res, next) {
                                 text: "validation key: <" + key + ">", // plain text body
                             };
                             transporter.sendMail(mailOptions);
-                            
+                            transporter.close();
+
                             //automatically log in to new account
                             var hash = crypto.createHash('sha256'); // Randomly generated session ID
                             hash.update(Math.random().toString());
@@ -141,6 +142,13 @@ router.post('/search', async function (req, res, next) {
     } else {
         res.json(ret)
     }
+});
+
+/* Return the 10 most recently asked questions*/
+router.post('/recentQuestions', async function (req, res, next) {
+    var ret = await helper.recentQuestions(req, res);
+    console.log(ret);
+    res.json({ status: "OK", questions: ret });
 });
 
 module.exports = router;

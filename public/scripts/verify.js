@@ -5,7 +5,11 @@ $(document).ready(function () {
             url: "/verify",
             method: "POST",
             success: function (response) {
-                $("#msg").html(response.msg);
+                if (response.msg != null) {
+                    $("#msg").html(response.msg);
+                } else if (response.error != null) {
+                    $("#msg").html(response.error);
+                }
             }
         });
     });
