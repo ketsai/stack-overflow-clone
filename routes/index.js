@@ -96,5 +96,55 @@ router.get('/stats', async function (req, res, next) {
     }
 });
 
+
+router.get('/questions/:id', function(req, res, next){
+    var id = req.params.id;
+    db.collection('questions').findOne({ '_id' : id}, function (err, ret){
+        if (err) return handleError(err);
+        if (ret){
+            db.collection('users').findOne({'username': ret.username}, function (err2, ret2){
+                if (err2) return handleError(err2);
+                if (ret2){
+                    db.collection('answers').countDocuments({'questionId': id}, function (err3,ret3){
+                        if (err3) return handleError(err3);
+                        if (ret3) {
+                            res.json({
+                                status: "OK",
+                                question: {
+                                    id: id,
+                                    user: {
+                                        username: ret2.username,
+                                        reputation: ret2.reputation
+                                    },
+                                    title: ret.title,
+                                    body: ret.body,
+                                    score: ret.score,
+                                    view_count: ret.viewers.length,
+                                    answer_count: ret3,
+                                    timestamp: ret.timestamp,
+                                    media: ret.media,
+                                    tags: ret.tags,
+                                    accepted_answer_id: ret.accepted_answer_id
+                                }
+                            });
+                        }
+                    });
+                }
+            });
+        }
+    });
+});
+
+router.get('/questions/:id/answers', function(req, res, next){
+    var id = req.params.id;
+    db.collection('questions').findOne({ '_id' : id}, function (err, ret){
+        if (err) return handleError(err);
+        if (ret){
+            db.collection('answers').countDocuments({'questionId': id}, function (err2,ret2){
+                if (err2) return handleError(2);
+
+            }
+})
+
 module.exports = router;
 console.log('Index routing loaded')

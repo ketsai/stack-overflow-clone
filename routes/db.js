@@ -5,6 +5,7 @@ var db = mongoose.connection;
 var crypto = require('crypto');
 var bcrypt = require('bcryptjs');
 var nodemailer = require('nodemailer');
+var shortid = require('shortid');
 
 /* Adding a user into the database*/
 router.post('/adduser', function (req, res, next) {
@@ -125,6 +126,70 @@ router.post('/logout', function (req, res, next) {
     db.collection('sessions').deleteOne({ 'session': session });
     res.clearCookie('session');
     res.json({ status: "OK", msg: 'Logged out successfully' });
+});
+
+/*Add Question*/
+router.post('/questions/add', function (req, res, next) {
+    var session = req.cookies.session;
+    db.collection('sessions').findOne({'session': session}, function (err, ret) {
+        if (err) return handleError(err);
+        var user = ret.username;
+        var v = req.body;
+        if (v.title == '' || v.body == '') {
+            res.json({status: "error", error: 'All fields are required; please enter all information.'});
+        }
+        var media = null;
+        if (v.media != undefined) {
+            media = v.media;
+        }
+        var qid = shortid.generate()
+        var question = {
+            _id: qid,
+            title: v.title,
+            body: v.body,
+            tags: v.tags,
+            media: media,
+            user: user,
+            score: 0,
+            viewers: [],
+            timestamp: Date.now() * 1000,
+            accepted_answer_id: null
+        }
+        db.collection('sessions').insertOne(question, function () {
+            res.json({status: "OK", id: qid});
+        });
+    });
+});
+
+router.post('/questions/:id/answers/add', function(req, res, next){
+    var aid = shortid.generate();
+    db.collection('sessions').findOne({'session': session}, function (err, ret) {
+        var qid = req.params.id;
+        if (err) return handleError(err);
+        var user = ret.username;
+        var v = req.body;
+        if (v.body == '') {
+            res.json({status: "error", error: 'You must fill in an answer'});
+        }
+        var media = null;
+        if (v.media != undefined) {
+            media = v.media;
+        }
+        var answer = {
+            _id: aid,
+            questionId: qid,
+            user: user,
+            body: req.body.body,
+            score: 0,
+            is_accepted: false,
+            timestamp: Date.now() * 1000,
+            media: media
+
+        }
+        db.collection('answers').insertOne(answer, function () {
+            res.json({status: "OK", id: aid});
+        });
+    });
 });
 
 module.exports = router;
