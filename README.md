@@ -1,2 +1,2 @@
-# tic-tac-toe
-Tic tac toe application server
+# stack-overflow-clone
+Stack Overflow clone, CSE356 S2019
