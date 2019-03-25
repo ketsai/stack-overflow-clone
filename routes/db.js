@@ -5,6 +5,12 @@ var db = mongoose.connection;
 var crypto = require('crypto');
 var bcrypt = require('bcryptjs');
 var nodemailer = require('nodemailer');
+var helper = require('./helpers.js');
+
+function handleError(res, err) {
+    console.log(err);
+    res.json({ status: "error", error: err });
+}
 
 /* Adding a user into the database*/
 router.post('/adduser', function (req, res, next) {
@@ -13,12 +19,12 @@ router.post('/adduser', function (req, res, next) {
         res.json({ status: "error", error: 'All fields are required; please enter all information.' });
     } else {
         db.collection('users').findOne({ 'username': v.username }, function (err, ret) {
-            if (err) return handleError(err);
+            if (err) return handleError(res,err);
             if (ret != null) {
                 res.json({ status: "error", error: 'Username already registered. Please enter another.' });
             } else {
                 db.collection('users').findOne({ 'email': v.email }, function (err, ret) {
-                    if (err) return handleError(err);
+                    if (err) return handleError(res,err);
                     if (ret != null) {
                         res.json({ status: "error", error: 'Email already registered. Please enter another.' });
                     } else {
@@ -80,7 +86,7 @@ router.post('/verify', function (req, res, next) {
     var v = req.body;
     var key = crypto.createHash('md5').update(v.email + "salty_salt").digest('hex');
     db.collection('users').findOne({ 'email': v.email }, function (err, ret) {
-        if (err) return handleError(err);
+        if (err) return handleError(res,err);
         if (ret != null && (v.key == key || v.key == 'abracadabra')) { // Is the request key the same as email after salt and hash?
             db.collection('users').updateOne({ 'email': v.email }, { $set: { verified: true }});
             res.json({ status: "OK", msg: 'Your account is now verified!' });
@@ -94,7 +100,7 @@ router.post('/verify', function (req, res, next) {
 router.post('/login', function (req, res, next) {
     var v = req.body;
     db.collection('users').findOne({ 'username': v.username }, function (err, ret) {
-        if (err) return handleError(err);
+        if (err) return handleError(res,err);
         if (ret != null && !ret.verified) {
             res.json({ status: "error", error: 'Please verify your account.' });
         }else if (ret != null && bcrypt.compareSync(v.password, ret.password)) { // Ensure that the given password matches the hashed password
@@ -125,6 +131,16 @@ router.post('/logout', function (req, res, next) {
     db.collection('sessions').deleteOne({ 'session': session });
     res.clearCookie('session');
     res.json({ status: "OK", msg: 'Logged out successfully' });
+});
+
+/* Search for a question from a requested time or earlier*/
+router.post('/search', async function (req, res, next) {
+    var ret = await helper.search(req, res);
+    if (ret.constructor === Array) {
+        res.json({ status: "OK", questions: ret });
+    } else {
+        res.json(ret)
+    }
 });
 
 module.exports = router;

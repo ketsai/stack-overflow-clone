@@ -33,5 +33,30 @@ module.exports = {
                 resolve();
             }
         });
+    },
+    //search for {res.limit} responses at or before {res.timestamp}
+    search: async function (req, res) {
+        return new Promise(async function (resolve, reject) {
+            var ret = [];
+            var v = req.body;
+            var time = Date.now();
+            var lim = 25;
+            if (v.timestamp != null && parseInt(v.timestamp)) { //valid Unix time representation
+                time = parseInt(v.timestamp);
+            } else if (v.timestamp != null && !parseInt(v.timestamp)) { //invalid Unix time representation
+                resolve({ status: "error", error: 'Invalid timestamp format' });
+            }
+            if (v.limit != null && parseInt(v.limit) >= 0 && parseInt(v.limit) <= 100) { //valid limit provided
+                lim = parseInt(v.limit);
+            } else if (v.limit != null) { //invalid limit
+                resolve({ status: "error", error: 'Invalid limit provided' });
+            }
+            await db.collection('questions').find().sort({ timestamp: -1 }).forEach(function (question, err) {
+                if (question && question.timestamp <= time && ret.length < lim) {
+                    ret.push(question);
+                }
+            });
+            resolve(ret);
+        });
     }
 }
