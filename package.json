@@ -1,0 +1,20 @@
+{
+  "name": "warmup_project_1",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node ./bin/www"
+  },
+  "dependencies": {
+    "amqplib": "^0.5.3",
+    "bcryptjs": "^2.4.3",
+    "consolidate": "^0.15.1",
+    "cookie-parser": "^1.4.4",
+    "ejs": "^2.6.1",
+    "express": "^4.16.4",
+    "http-errors": "~1.6.2",
+    "jquery": "^3.3.1",
+    "mongoose": "^5.4.16",
+    "morgan": "~1.9.0"
+  }
+}

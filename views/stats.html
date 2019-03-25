@@ -1,0 +1,9 @@
+<div>
+    <h2 id="msg"><%- msg %></h2>
+    <form action="/listgames" id="listgames" method="post"><input type="submit" value="List Games" /><br></form>
+    <form action="/getscore" id="getscore" method="post"><input type="submit" value="Get Score" /><br></form>
+    <form action="/getgame" id="getgame" method="post"><input type="submit" value="Get game" /><input type="text" name="id" value=""><br></form>
+</div>
+<div id="stats"></div>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<link rel="stylesheet" type="text/css" href="../stylesheets/home.css" />
