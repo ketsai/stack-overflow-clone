@@ -143,57 +143,69 @@ router.post('/questions/add', async function (req, res, next) {
         var user = userData.username;
 
         var v = req.body;
-        if (v.title == '' || v.body == '') {
+        if (v.title == null || v.body == null || v.tags == null) {
             res.json({status: "error", error: 'All fields are required; please enter all information.'});
         }
-        var media = null;
-        if (v.media != undefined) {
-            media = v.media;
+        else {
+            var media = null;
+            if (v.media != undefined) {
+                media = v.media;
+            }
+            var qid = shortid.generate();
+            var question = {
+                _id: qid,
+                title: v.title,
+                body: v.body,
+                tags: v.tags,
+                media: media,
+                user: user,
+                score: 0,
+                viewers: [],
+                timestamp: Date.now() / 1000,
+                accepted_answer_id: null
+            }
+            db.collection('questions').insertOne(question, function () {
+                res.json({status: "OK", id: qid});
+            });
         }
-        var qid = shortid.generate();
-        var question = {
-            _id: qid,
-            title: v.title,
-            body: v.body,
-            tags: v.tags,
-            media: media,
-            user: user,
-            score: 0,
-            viewers: [user],
-            timestamp: Date.now() * 1000,
-            accepted_answer_id: null
-        }
-        db.collection('questions').insertOne(question , function () {
-            res.json({status: "OK", id: qid});
-        });
-    };
+    }
+    else{
+        res.json({status: "error", error: "You're not logged in you scrub"});
+    }
 });
 
 router.post('/questions/:id/answers/add', async function(req, res, next) {
     var aid = shortid.generate();
     let userData = await helper.getUserData(req, res);
-    var qid = req.params.id;
-    var v = req.body;
-    if (v.body == '') {
-        res.json({status: "error", error: 'You must fill in an answer'});
+    if (userData) {
+        var qid = req.params.id;
+        var v = req.body;
+        if (v.body == null) {
+            res.json({status: "error", error: 'You must fill in an answer'});
+        }
+        else {
+            var media = null;
+            if (v.media != undefined) {
+                media = v.media;
+            }
+            var answer = {
+                _id: aid,
+                questionId: qid,
+                user: userData.username,
+                body: req.body.body,
+                score: 0,
+                is_accepted: false,
+                timestamp: Date.now() / 1000,
+                media: media
+            }
+            db.collection('answers').insertOne(answer, function () {
+                res.json({status: "OK", id: aid});
+            });
+        }
     }
-    var media = null;
-    if (v.media != undefined) {
-        media = v.media;
+    else{
+        res.json({status: "error", error: "You're not logged in you scrub"});
     }
-    var answer = {
-        _id: aid,
-        questionId: qid,
-        user: userData.username,
-        body: req.body.body,
-        score: 0,
-        is_accepted: false,
-        timestamp: Date.now() * 1000,
-        media: media
-    }
-    db.collection('answers').insertOne(answer, function () {
-        res.json({status: "OK", id: aid});
-    });
 });
 
 /* Search for a question from a requested time or earlier*/
@@ -202,7 +214,7 @@ router.post('/search', async function (req, res, next) {
     if (ret.constructor === Array) {
         res.json({ status: "OK", questions: ret });
     } else {
-        res.json(ret)
+        res.json(ret);
     }
 });
 

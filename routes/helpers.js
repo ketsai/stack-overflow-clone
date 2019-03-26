@@ -39,7 +39,7 @@ module.exports = {
         return new Promise(async function (resolve, reject) {
             var ret = [];
             var v = req.body;
-            var time = Date.now();
+            var time = Date.now() / 1000;
             var lim = 25;
             if (v.timestamp != null && parseInt(v.timestamp)) { //valid Unix time representation
                 time = parseInt(v.timestamp);
@@ -66,32 +66,24 @@ module.exports = {
             var viewer = req.params.viewer;
             await db.collection('questions').findOne({'_id': qid}, function(err, ret1){
                 if (ret1){
-                    db.collection('answers').countDocuments({'questionId': qid}, function(err, count){
-                        ret.count = count;
-                    });
-                    db.collection('users').findOne({'username': ret1.user}, function (err, user){
-                        if (user){
-                            ret.user = { user: user.username, reputation: user.reputation};
-                        }
-                    });
-                    ret.status = "OK";
-                    ret.question = {
+                    var question = {
                         id : req.params.id.toString(),
+                        user: ret1.user,
                         title: ret1.title,
                         body: ret1.body,
                         score: ret1.score,
                         view_count: ret1.viewers.length,
-                        timestamp: ret1.view_count,
+                        timestamp: ret1.timestamp,
                         media: ret1.media,
                         tags: ret1.tags,
                         accepted_answer_id: ret1.accepted_answer_id
                     };
                     if (!ret1.viewers.includes(viewer)){
-                        ret.view_count += 1;
+                        question.view_count += 1;
                         ret1.viewers.push(viewer);
                         db.collection('questions').updateOne({_id: ret.id}, {$set: {viewers: ret1.viewers}});
                     }
-                    resolve({status: "OK", question: ret});
+                    resolve(question);
                 }
                 else{
                     resolve({status: "error", error: "No question with this ID"});
@@ -124,6 +116,23 @@ module.exports = {
                 }
             });
             resolve(ret);
+        });
+    },
+    getAnswerCount: async function(req, res){
+        return new Promise(async function (resolve, reject) {
+            var qid = req.params.id;
+            await db.collection('answers').countDocuments({'questionId': qid}, function (err, count) {
+                resolve(count);
+            });
+        });
+    },
+    getUserOfQuestion: async function(req, res){
+        return new Promise(async function (resolve, reject) {
+            await db.collection('users').findOne({'username': req.params.user}, function (err, user) {
+                if (user) {
+                    resolve({user: user.username, reputation: user.reputation});
+                }
+            });
         });
     },
     //return the 10 most recently asked questions

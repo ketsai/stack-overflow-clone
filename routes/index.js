@@ -65,15 +65,19 @@ router.get('/verify', async function (req, res, next) {
 });
 
 router.get('/questions/:id', async function(req, res, next) {
-    console.log(req.params);
     let userData = await helper.getUserData(req, res);
     var viewer = req.ip;
     if (userData) {
         viewer = userData.username;
     }
     req.params.viewer = viewer;
-    var ret = await helper.getQuestion(req, res);
-    res.json(ret);
+    var question = await helper.getQuestion(req, res);
+    req.params.user = question.user;
+    var answer_count = await helper.getAnswerCount(req, res);
+    var user = await helper.getUserOfQuestion(req, res);
+    question.user = user;
+    question.answer_count = answer_count;
+    res.json({status: "OK", question: question});
 });
 
 router.get('/questions/:id/answers', async function(req, res, next){
