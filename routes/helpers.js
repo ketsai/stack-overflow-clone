@@ -51,12 +51,48 @@ module.exports = {
             } else if (v.limit != null) { //invalid limit
                 resolve({ status: "error", error: 'Invalid limit provided' });
             }
-            await db.collection('questions').find().sort({ timestamp: -1 }).forEach(function (question, err) {
-                if (question && question.timestamp <= time && ret.length < lim) {
-                    ret.push(question);
-                }
+            await db.collection('questions').find().sort({ timestamp: -1 }).limit(lim).toArray(function(err, questions){
+                var count = questions.length;
+                questions.forEach(function(question){
+                    if (question && question.timestamp <= time && ret.length < lim) {
+                        var modifiedquestion =
+                            {
+                                id: question._id,
+                                user: question.user,
+                                title: question.title,
+                                body: question.body,
+                                score: question.score,
+                                view_count: question.viewers.length,
+                                timestamp: question.timestamp,
+                                media: question.media,
+                                tags: question.tags,
+                                accepted_answer_id: question.accepted_answer_id
+                            }
+
+                        var get_info = new Promise (async function(resolve, reject){
+                            db.collection('answers').countDocuments({'questionId': question._id}, function(err, count){
+                                modifiedquestion.answer_count = count;
+                            });
+                            var get_user = new Promise(async function(resolve, reject){
+                                await db.collection('users').findOne({'username': question.user}, function (err, user){
+                                    if (user){
+                                        modifiedquestion.user = {username: user.username, reputation: user.reputation}
+                                    }
+                                });
+                            })
+                        });
+                        get_info.then(function () {
+                            ret.push(modifiedquestion);
+                            count--;
+                            if (count == 0){
+                                resolve(ret);
+                            }
+                        })
+
+                    };
+                });
             });
-            resolve(ret);
+
         });
     },
     getQuestion: async function(req, res){
@@ -129,7 +165,7 @@ module.exports = {
         return new Promise(async function (resolve, reject) {
             await db.collection('users').findOne({'username': req.params.user}, function (err, user) {
                 if (user) {
-                    resolve({user: user.username, reputation: user.reputation});
+                    resolve({username: user.username, reputation: user.reputation});
                 }
             });
         });
