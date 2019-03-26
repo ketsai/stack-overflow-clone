@@ -5,6 +5,7 @@ var db = mongoose.connection;
 var crypto = require('crypto');
 var bcrypt = require('bcryptjs');
 var nodemailer = require('nodemailer');
+var shortid = require('shortid');
 var helper = require('./helpers.js');
 
 function handleError(res, err) {
@@ -38,7 +39,8 @@ router.post('/adduser', function (req, res, next) {
                                 username: v.username,
                                 email: v.email,
                                 password: hash,
-                                verified: false
+                                verified: false,
+                                reputation: 1
                             };
                             db.collection('users').insertOne(user);
 
@@ -134,14 +136,105 @@ router.post('/logout', function (req, res, next) {
     res.json({ status: "OK", msg: 'Logged out successfully' });
 });
 
+/*Add Question*/
+router.post('/questions/add', async function (req, res, next) {
+    let userData = await helper.getUserData(req, res);
+    if (userData) {
+        var user = userData.username;
+
+        var v = req.body;
+        if (v.title == null || v.body == null || v.tags == null) {
+            res.json({status: "error", error: 'All fields are required; please enter all information.'});
+        }
+        else {
+            var media = null;
+            if (v.media != undefined) {
+                media = v.media;
+            }
+            var qid = shortid.generate();
+            var question = {
+                _id: qid,
+                title: v.title,
+                body: v.body,
+                tags: v.tags,
+                media: media,
+                user: user,
+                score: 0,
+                viewers: [],
+                timestamp: Date.now() / 1000,
+                accepted_answer_id: null
+            }
+            db.collection('questions').insertOne(question, function () {
+                res.json({status: "OK", id: qid});
+            });
+        }
+    }
+    else{
+        res.json({status: "error", error: "You're not logged in you scrub"});
+    }
+});
+
+router.post('/questions/:id/answers/add', async function(req, res, next) {
+    var aid = shortid.generate();
+    let userData = await helper.getUserData(req, res);
+    if (userData) {
+        var qid = req.params.id;
+        var v = req.body;
+        if (v.body == null) {
+            res.json({status: "error", error: 'You must fill in an answer'});
+        }
+        else {
+            var media = null;
+            if (v.media != undefined) {
+                media = v.media;
+            }
+            var answer = {
+                _id: aid,
+                questionId: qid,
+                user: userData.username,
+                body: req.body.body,
+                score: 0,
+                is_accepted: false,
+                timestamp: Date.now() / 1000,
+                media: media
+            }
+            db.collection('answers').insertOne(answer, function () {
+                res.json({status: "OK", id: aid});
+            });
+        }
+    }
+    else{
+        res.json({status: "error", error: "You're not logged in you scrub"});
+    }
+});
+
 /* Search for a question from a requested time or earlier*/
 router.post('/search', async function (req, res, next) {
     var ret = await helper.search(req, res);
     if (ret.constructor === Array) {
-        res.json({ status: "OK", questions: ret });
+        console.log("This is the original ret");
+        console.log(ret);
+        console.log("=========================================")
+        /*for (index = 0; index < ret.length; index++){
+            req.params.id = ret[index].id;
+            req.params.user = ret[index].user;
+            console.log("This is the individual question")
+            console.log(ret[index]);
+            console.log("=========================================")
+            var get_count = await helper.getAnswerCount(req, res);
+            get_count.then(function(){
+                ret[index].answer_count = get_count;
+            })
+            var get_user = await helper.getUserOfQuestion(req, res);
+            get_user.then(function(){
+                ret[index].user = get_user;
+            })
+        }*/
+        res.json({status:"OK", questions:ret});
     } else {
-        res.json(ret)
+        res.json(ret);
     }
+
 });
 
 /* Return the 10 most recently asked questions*/

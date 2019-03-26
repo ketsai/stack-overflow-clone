@@ -64,5 +64,30 @@ router.get('/verify', async function (req, res, next) {
     }
 });
 
+router.get('/questions/:id', async function(req, res, next) {
+    let userData = await helper.getUserData(req, res);
+    var viewer = req.ip;
+    if (userData) {
+        viewer = userData.username;
+    }
+    req.params.viewer = viewer;
+    var question = await helper.getQuestion(req, res);
+    req.params.user = question.user;
+    var answer_count = await helper.getAnswerCount(req, res);
+    var user = await helper.getUserOfQuestion(req, res);
+    question.user = user;
+    question.answer_count = answer_count;
+    res.json({status: "OK", question: question});
+});
+
+router.get('/questions/:id/answers', async function(req, res, next){
+    var ret = await helper.getAnswers(req, res);
+    if (ret.constructor === Array) {
+        res.json({ status: "OK", answers: ret });
+    } else {
+        res.json(ret)
+    }
+});
+
 module.exports = router;
 console.log('Index routing loaded')
