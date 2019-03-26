@@ -41,9 +41,10 @@ module.exports = {
             var v = req.body;
             var time = Date.now() / 1000;
             var lim = 25;
-            if (v.timestamp != null && parseInt(v.timestamp)) { //valid Unix time representation
-                time = parseInt(v.timestamp);
-            } else if (v.timestamp != null && !parseInt(v.timestamp)) { //invalid Unix time representation
+            if (v.timestamp != null && parseFloat(v.timestamp)) { //valid Unix time representation
+                time = parseFloat(v.timestamp);
+                console.log(time);
+            } else if (v.timestamp != null && !parseFloat(v.timestamp)) { //invalid Unix time representation
                 resolve({ status: "error", error: 'Invalid timestamp format' });
             }
             if (v.limit != null && parseInt(v.limit) >= 0 && parseInt(v.limit) <= 100) { //valid limit provided
@@ -51,48 +52,69 @@ module.exports = {
             } else if (v.limit != null) { //invalid limit
                 resolve({ status: "error", error: 'Invalid limit provided' });
             }
-            await db.collection('questions').find().sort({ timestamp: -1 }).limit(lim).toArray(function(err, questions){
-                var count = questions.length;
-                questions.forEach(function(question){
-                    if (question && question.timestamp <= time && ret.length < lim) {
-                        var modifiedquestion =
-                            {
-                                id: question._id,
-                                user: question.user,
-                                title: question.title,
-                                body: question.body,
-                                score: question.score,
-                                view_count: question.viewers.length,
-                                timestamp: question.timestamp,
-                                media: question.media,
-                                tags: question.tags,
-                                accepted_answer_id: question.accepted_answer_id
-                            }
+            await db.collection('questions').find({timestamp: {$lte: time}}).sort({ timestamp: -1 }).limit(lim).toArray(function(err, questions){
+                if (err){
+                    resolve({status: "error", error: err})
+                }
+                else {
+                    var count = questions.length;
+                    questions.forEach(function (question) {
+                        if (question && question.timestamp <= time) {
+                            var modifiedquestion =
+                                {
+                                    id: question._id,
+                                    user: question.user,
+                                    title: question.title,
+                                    body: question.body,
+                                    score: question.score,
+                                    view_count: question.viewers.length,
+                                    timestamp: question.timestamp,
+                                    media: question.media,
+                                    tags: question.tags,
+                                    accepted_answer_id: question.accepted_answer_id
+                                }
 
-                        var get_info = new Promise (async function(resolve, reject){
-                            db.collection('answers').countDocuments({'questionId': question._id}, function(err, count){
-                                modifiedquestion.answer_count = count;
+                            var get_answer_count = new Promise(async function (resolve, reject) {
+                                db.collection('answers').countDocuments({'questionId': question._id}, function (err, count) {
+                                    if (err){
+                                        resolve({status: "error", error: err})
+                                    }
+                                    else {
+                                        resolve(count);
+                                    }
+                                });
                             });
-                            var get_user = new Promise(async function(resolve, reject){
-                                await db.collection('users').findOne({'username': question.user}, function (err, user){
-                                    if (user){
-                                        modifiedquestion.user = {username: user.username, reputation: user.reputation}
+                            var get_user = new Promise(async function (resolve, reject) {
+                                await db.collection('users').findOne({'username': question.user}, function (err, user) {
+                                    if (user) {
+                                        resolve({username: user.username, reputation: user.reputation});
+                                    }
+                                    else{
+                                        resolve({ststus: "error", error: err});
                                     }
                                 });
                             })
-                        });
-                        get_info.then(function () {
-                            ret.push(modifiedquestion);
+                            get_answer_count.then(function (result) {
+                                modifiedquestion.answer_count = result;
+                                get_user.then(function (result1) {
+                                    modifiedquestion.user = result1;
+                                    ret.push(modifiedquestion);
+                                    count--;
+                                    if (count == 0) {
+                                        resolve(ret);
+                                    }
+                                })
+                            })
+                        }
+                        else{
                             count--;
-                            if (count == 0){
+                            if (count == 0) {
                                 resolve(ret);
                             }
-                        })
-
-                    };
-                });
+                        }
+                    });
+                }
             });
-
         });
     },
     getQuestion: async function(req, res){

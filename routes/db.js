@@ -210,26 +210,9 @@ router.post('/questions/:id/answers/add', async function(req, res, next) {
 
 /* Search for a question from a requested time or earlier*/
 router.post('/search', async function (req, res, next) {
+    console.log(req.body);
     var ret = await helper.search(req, res);
     if (ret.constructor === Array) {
-        console.log("This is the original ret");
-        console.log(ret);
-        console.log("=========================================")
-        /*for (index = 0; index < ret.length; index++){
-            req.params.id = ret[index].id;
-            req.params.user = ret[index].user;
-            console.log("This is the individual question")
-            console.log(ret[index]);
-            console.log("=========================================")
-            var get_count = await helper.getAnswerCount(req, res);
-            get_count.then(function(){
-                ret[index].answer_count = get_count;
-            })
-            var get_user = await helper.getUserOfQuestion(req, res);
-            get_user.then(function(){
-                ret[index].user = get_user;
-            })
-        }*/
         res.json({status:"OK", questions:ret});
     } else {
         res.json(ret);
