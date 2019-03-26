@@ -5,9 +5,9 @@ $(document).ready(function () {
             url: "/adduser",
             method: "POST",
             success: function (response) {
-                if (response.msg) {
+                if (response.msg != null) {
                     $("#msg").html(response.msg);
-                } else {
+                } else if (response.error != null) {
                     $("#msg").html(response.error);
                 }
             }

@@ -6,6 +6,12 @@ var crypto = require('crypto');
 var bcrypt = require('bcryptjs');
 var nodemailer = require('nodemailer');
 var shortid = require('shortid');
+var helper = require('./helpers.js');
+
+function handleError(res, err) {
+    console.log(err);
+    res.json({ status: "error", error: err });
+}
 
 /* Adding a user into the database*/
 router.post('/adduser', function (req, res, next) {
@@ -14,12 +20,12 @@ router.post('/adduser', function (req, res, next) {
         res.json({ status: "error", error: 'All fields are required; please enter all information.' });
     } else {
         db.collection('users').findOne({ 'username': v.username }, function (err, ret) {
-            if (err) return handleError(err);
+            if (err) return handleError(res,err);
             if (ret != null) {
                 res.json({ status: "error", error: 'Username already registered. Please enter another.' });
             } else {
                 db.collection('users').findOne({ 'email': v.email }, function (err, ret) {
-                    if (err) return handleError(err);
+                    if (err) return handleError(res,err);
                     if (ret != null) {
                         res.json({ status: "error", error: 'Email already registered. Please enter another.' });
                     } else {
@@ -33,7 +39,8 @@ router.post('/adduser', function (req, res, next) {
                                 username: v.username,
                                 email: v.email,
                                 password: hash,
-                                verified: false
+                                verified: false,
+                                reputation: 1
                             };
                             db.collection('users').insertOne(user);
 
@@ -81,7 +88,7 @@ router.post('/verify', function (req, res, next) {
     var v = req.body;
     var key = crypto.createHash('md5').update(v.email + "salty_salt").digest('hex');
     db.collection('users').findOne({ 'email': v.email }, function (err, ret) {
-        if (err) return handleError(err);
+        if (err) return handleError(res,err);
         if (ret != null && (v.key == key || v.key == 'abracadabra')) { // Is the request key the same as email after salt and hash?
             db.collection('users').updateOne({ 'email': v.email }, { $set: { verified: true }});
             res.json({ status: "OK", msg: 'Your account is now verified!' });
@@ -95,7 +102,7 @@ router.post('/verify', function (req, res, next) {
 router.post('/login', function (req, res, next) {
     var v = req.body;
     db.collection('users').findOne({ 'username': v.username }, function (err, ret) {
-        if (err) return handleError(err);
+        if (err) return handleError(res,err);
         if (ret != null && !ret.verified) {
             res.json({ status: "error", error: 'Please verify your account.' });
         }else if (ret != null && bcrypt.compareSync(v.password, ret.password)) { // Ensure that the given password matches the hashed password
@@ -129,11 +136,11 @@ router.post('/logout', function (req, res, next) {
 });
 
 /*Add Question*/
-router.post('/questions/add', function (req, res, next) {
-    var session = req.cookies.session;
-    db.collection('sessions').findOne({'session': session}, function (err, ret) {
-        if (err) return handleError(err);
-        var user = ret.username;
+router.post('/questions/add', async function (req, res, next) {
+    let userData = await helper.getUserData(req, res);
+    if (userData) {
+        var user = userData.username;
+
         var v = req.body;
         if (v.title == '' || v.body == '') {
             res.json({status: "error", error: 'All fields are required; please enter all information.'});
@@ -142,7 +149,7 @@ router.post('/questions/add', function (req, res, next) {
         if (v.media != undefined) {
             media = v.media;
         }
-        var qid = shortid.generate()
+        var qid = shortid.generate();
         var question = {
             _id: qid,
             title: v.title,
@@ -151,45 +158,51 @@ router.post('/questions/add', function (req, res, next) {
             media: media,
             user: user,
             score: 0,
-            viewers: [],
+            viewers: [user],
             timestamp: Date.now() * 1000,
             accepted_answer_id: null
         }
-        db.collection('sessions').insertOne(question, function () {
+        db.collection('questions').insertOne(question , function () {
             res.json({status: "OK", id: qid});
         });
+    };
+});
+
+router.post('/questions/:id/answers/add', async function(req, res, next) {
+    var aid = shortid.generate();
+    let userData = await helper.getUserData(req, res);
+    var qid = req.params.id;
+    var v = req.body;
+    if (v.body == '') {
+        res.json({status: "error", error: 'You must fill in an answer'});
+    }
+    var media = null;
+    if (v.media != undefined) {
+        media = v.media;
+    }
+    var answer = {
+        _id: aid,
+        questionId: qid,
+        user: userData.username,
+        body: req.body.body,
+        score: 0,
+        is_accepted: false,
+        timestamp: Date.now() * 1000,
+        media: media
+    }
+    db.collection('answers').insertOne(answer, function () {
+        res.json({status: "OK", id: aid});
     });
 });
 
-router.post('/questions/:id/answers/add', function(req, res, next){
-    var aid = shortid.generate();
-    db.collection('sessions').findOne({'session': session}, function (err, ret) {
-        var qid = req.params.id;
-        if (err) return handleError(err);
-        var user = ret.username;
-        var v = req.body;
-        if (v.body == '') {
-            res.json({status: "error", error: 'You must fill in an answer'});
-        }
-        var media = null;
-        if (v.media != undefined) {
-            media = v.media;
-        }
-        var answer = {
-            _id: aid,
-            questionId: qid,
-            user: user,
-            body: req.body.body,
-            score: 0,
-            is_accepted: false,
-            timestamp: Date.now() * 1000,
-            media: media
-
-        }
-        db.collection('answers').insertOne(answer, function () {
-            res.json({status: "OK", id: aid});
-        });
-    });
+/* Search for a question from a requested time or earlier*/
+router.post('/search', async function (req, res, next) {
+    var ret = await helper.search(req, res);
+    if (ret.constructor === Array) {
+        res.json({ status: "OK", questions: ret });
+    } else {
+        res.json(ret)
+    }
 });
 
 module.exports = router;
