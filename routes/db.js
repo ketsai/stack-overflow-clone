@@ -43,7 +43,7 @@ router.post('/adduser', function (req, res, next) {
                             db.collection('users').insertOne(user);
 
                             var key = crypto.createHash('md5').update(v.email + "salty_salt").digest('hex'); //EMAIL THIS KEY TO EMAIL ADDRESS
-                            let transporter = nodemailer.createTransport({
+                            var transporter = nodemailer.createTransport({
                                 host: "localhost",
                                 port: 25,
                                 secure: false,
@@ -147,7 +147,6 @@ router.post('/search', async function (req, res, next) {
 /* Return the 10 most recently asked questions*/
 router.post('/recentQuestions', async function (req, res, next) {
     var ret = await helper.recentQuestions(req, res);
-    console.log(ret);
     res.json({ status: "OK", questions: ret });
 });
 
