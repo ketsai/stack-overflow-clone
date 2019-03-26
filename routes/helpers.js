@@ -101,16 +101,16 @@ module.exports = {
         });
     },
     getAnswers: async function(req, res) {
-        return new Promise(async function( resolve, reject){
+        return new Promise(async function (resolve, reject) {
             var ret = [];
             var qid = req.params.id.toString();
-            await db.collection('questions').findOne({'_id': qid}, function(err, ret1){
-                if (!ret1){
-                    resolve({ status: "error", error: "No question with this ID"});
+            await db.collection('questions').findOne({'_id': qid}, function (err, ret1) {
+                if (!ret1) {
+                    resolve({status: "error", error: "No question with this ID"});
                 }
             });
-            await db.collection('answers').find({'questionId' : qid}).forEach(function (answer, err){
-                if (answer){
+            await db.collection('answers').find({'questionId': qid}).forEach(function (answer, err) {
+                if (answer) {
                     var modifiedAnswer = {
                         id: answer._id,
                         user: answer.user,
@@ -121,6 +121,18 @@ module.exports = {
                         media: answer.media
                     }
                     ret.push(modifiedAnswer);
+                }
+            });
+            resolve(ret);
+        });
+    },
+    //return the 10 most recently asked questions
+    recentQuestions: async function (req, res) {
+        return new Promise(async function (resolve, reject) {
+            var ret = [];
+            await db.collection('questions').find().sort({ timestamp: -1 }).limit(10).forEach(function (question, err) {
+                if (question) {
+                    ret.push(question);
                 }
             });
             resolve(ret);

@@ -1,6 +1,10 @@
 div {
   margin: auto;
-  width: 800px;
   font-size: 18px;
   text-align: center;
+}
+
+table {
+    text-align: center;
+    margin: 0 auto;
 }
