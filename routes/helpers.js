@@ -61,7 +61,6 @@ module.exports = {
     },
     getQuestion: async function(req, res){
         return new Promise(async function (resolve, reject) {
-            var ret = {};
             var qid = req.params.id;
             var viewer = req.params.viewer;
             await db.collection('questions').findOne({'_id': qid}, function(err, ret1){
@@ -81,7 +80,7 @@ module.exports = {
                     if (!ret1.viewers.includes(viewer)){
                         question.view_count += 1;
                         ret1.viewers.push(viewer);
-                        db.collection('questions').updateOne({_id: ret.id}, {$set: {viewers: ret1.viewers}});
+                        db.collection('questions').updateOne({_id: qid}, {$set: {viewers: ret1.viewers}});
                     }
                     resolve(question);
                 }
