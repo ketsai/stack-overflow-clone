@@ -69,6 +69,7 @@ module.exports = {
                     }
                 }
             });
+            resolve(ret);
         });
     },
     getQuestion: async function(req, res){
