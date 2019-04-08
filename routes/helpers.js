@@ -203,5 +203,41 @@ module.exports = {
             });
             resolve(ret);
         });
-    }
+    },
+    //return an array of IDs for questions asked by a user
+    getUserQuestions: async function (req, res) {
+        return new Promise(async function (resolve, reject) {
+            var ret = [];
+            var username = req.params.username.toString();
+            await db.collection('users').findOne({ 'username': username }, function (err, ret1) {
+                if (!ret1) {
+                    resolve({ status: "error", error: "User not found." });
+                }
+            });
+            await db.collection('questions').find({ 'user': username }).forEach(function (question) {
+                if (question) {
+                    ret.push(question._id);
+                }
+            });
+            resolve(ret);
+        });
+    },
+    //return an array of IDs for answers asked by a user
+    getUserAnswers: async function (req, res) {
+        return new Promise(async function (resolve, reject) {
+            var ret = [];
+            var username = req.params.username.toString();
+            await db.collection('users').findOne({ 'username': username }, function (err, ret1) {
+                if (!ret1) {
+                    resolve({ status: "error", error: "User not found." });
+                }
+            });
+            await db.collection('answers').find({ 'user': username }).forEach(function (answer) {
+                if (answer) {
+                    ret.push(answer._id);
+                }
+            });
+            resolve(ret);
+        });
+    },
 }
