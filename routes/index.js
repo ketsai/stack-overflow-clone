@@ -91,8 +91,8 @@ router.get('/questions/:id/answers', async function(req, res, next){
 
 router.get('/user/:username', async function(req, res){
     req.params.user = req.params.username;
-    var user = await helper.getUserOfQuestion(req, res);
-    if (user.status){
+    var user = await helper.getUserInfo(req, res);
+    if (user.status=="error"){
         res.json(user);
     }
     else{

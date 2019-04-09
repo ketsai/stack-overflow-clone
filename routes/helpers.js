@@ -290,6 +290,18 @@ module.exports = {
             });
         });
     },
+    getUserInfo: async function (req, res) {
+        return new Promise(async function (resolve, reject) {
+            await db.collection('users').findOne({ 'username': req.params.user }, function (err, user) {
+                if (user) {
+                    resolve({ email: user.email, reputation: user.reputation });
+                }
+                else {
+                    resolve({ status: "error", error: "No such User" });
+                }
+            });
+        });
+    },
     //return the 10 most recently asked questions
     recentQuestions: async function (req, res) {
         return new Promise(async function (resolve, reject) {
