@@ -72,12 +72,17 @@ router.get('/questions/:id', async function(req, res, next) {
     }
     req.params.viewer = viewer;
     var question = await helper.getQuestion(req, res);
-    req.params.user = question.user;
-    var answer_count = await helper.getAnswerCount(req, res);
-    var user = await helper.getUserOfQuestion(req, res);
-    question.user = user;
-    question.answer_count = answer_count;
-    res.json({status: "OK", question: question});
+    if (question.status == "error") {
+        res.json(question);
+    }
+    else {
+        req.params.user = question.user;
+        var answer_count = await helper.getAnswerCount(req, res);
+        var user = await helper.getUserOfQuestion(req, res);
+        question.user = user;
+        question.answer_count = answer_count;
+        res.json({ status: "OK", question: question });
+    }
 });
 
 router.get('/questions/:id/answers', async function(req, res, next){
