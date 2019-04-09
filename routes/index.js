@@ -94,7 +94,25 @@ router.get('/users/:username', async function(req, res){
     var user = await helper.getUserOfQuestion(req, res);
     res.json({status: OK, user: user});
 
-})
+});
+
+router.get('/user/:username/questions', async function (req, res, next) {
+    var ret = await helper.getUserQuestions(req, res);
+    if (ret.constructor === Array) {
+        res.json({ status: "OK", questions: ret });
+    } else {
+        res.json(ret);
+    }
+});
+
+router.get('/user/:username/answers', async function (req, res, next) {
+    var ret = await helper.getUserAnswers(req, res);
+    if (ret.constructor === Array) {
+        res.json({ status: "OK", answers: ret });
+    } else {
+        res.json(ret);
+    }
+});
 
 module.exports = router;
 console.log('Index routing loaded')

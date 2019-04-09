@@ -208,7 +208,7 @@ router.post('/questions/:id/answers/add', async function(req, res, next) {
     }
 });
 
-/* Search for a question from a requested time or earlier*/
+/* Search for questions from a requested time or earlier*/
 router.post('/search', async function (req, res, next) {
     console.log(req.body);
     var ret = await helper.search(req, res);
