@@ -226,5 +226,19 @@ router.post('/recentQuestions', async function (req, res, next) {
     res.json({ status: "OK", questions: ret });
 });
 
+
+
+router.delete('/questions:id', async function (req, res){
+    let userData = await helper.getUserData(req, res);
+    if (!userData){
+        res.status(403);
+    }
+    else{
+        req.params.user = userData.username;
+        var ret = await helper.deleteQuestion(req, res);
+    }
+
+});
+
 module.exports = router;
 console.log('Database routing loaded');

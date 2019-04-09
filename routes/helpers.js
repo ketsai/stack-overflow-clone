@@ -203,5 +203,26 @@ module.exports = {
             });
             resolve(ret);
         });
+    },
+    deleteQuestion: async function(req, res){
+        return new Promise(async function (resolve, reject) {
+            var user = undefined;
+            await db.collection('questions').findOne({'_id': qid}, function(err, ret1){
+                if (req.params.username == ret1.user)
+                    var user = req.params.username;
+            })
+            if (user){
+                await db.collection('questions').remove({'_id': qid}, function(err, ret1){
+                    if (ret1.nRemoved == 0){
+                        res.status(404);
+                    }
+                    else{
+                        res.status(200);
+                    }
+                });
+            }
+            else{ res.status(403);}
+
+        })
     }
 }

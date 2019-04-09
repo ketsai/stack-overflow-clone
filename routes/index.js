@@ -89,5 +89,12 @@ router.get('/questions/:id/answers', async function(req, res, next){
     }
 });
 
+router.get('/users/:username', async function(req, res){
+    req.params.user = req.params.username;
+    var user = await helper.getUserOfQuestion(req, res);
+    res.json({status: OK, user: user});
+
+})
+
 module.exports = router;
 console.log('Index routing loaded')
