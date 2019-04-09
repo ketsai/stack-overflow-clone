@@ -164,13 +164,31 @@ router.post('/questions/add', async function (req, res, next) {
                 timestamp: Date.now() / 1000,
                 accepted_answer_id: null
             }
+            //insert each unique word in the body, title, and tags into inverted index to search
+            var text = v.title + " " + v.body;
+            for (var i = 0; i < v.tags.length; i++) {
+                text += " " + v.tags[i];
+            }
+            text = text.toLowerCase().split(" ");
+            text = new Set(text);
+            text.forEach(function (word) {
+                db.collection('index').findOne({ 'word': word }, function (err, ret) {
+                    if (ret) { //word has occurred before: update array
+                        let newDocuments = ret.documents;
+                        newDocuments.push(qid);
+                        db.collection('index').updateOne({ word: word }, { $set: { documents: newDocuments } });
+                    } else { //word hasn't occured before; insert new document with new array
+                        db.collection('index').insertOne({word: word, documents:[qid]});
+                    }
+                });
+            });
             db.collection('questions').insertOne(question, function () {
                 res.json({status: "OK", id: qid});
             });
         }
     }
     else{
-        res.json({status: "error", error: "You're not logged in you scrub"});
+        res.json({status: "error", error: "Please log into a verified account."});
     }
 });
 
@@ -210,7 +228,6 @@ router.post('/questions/:id/answers/add', async function(req, res, next) {
 
 /* Search for questions from a requested time or earlier*/
 router.post('/search', async function (req, res, next) {
-    console.log(req.body);
     var ret = await helper.search(req, res);
     if (ret.constructor === Array) {
         res.json({status:"OK", questions:ret});
