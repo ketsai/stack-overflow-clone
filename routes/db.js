@@ -228,14 +228,17 @@ router.post('/recentQuestions', async function (req, res, next) {
 
 
 
-router.delete('/questions:id', async function (req, res){
+router.delete('/questions/:id', async function (req, res){
     let userData = await helper.getUserData(req, res);
     if (!userData){
-        res.status(403);
+        console.log("userData is undefined");
+        res.json({status:403});
     }
     else{
+        console.log("got userData");
         req.params.user = userData.username;
         var ret = await helper.deleteQuestion(req, res);
+        res.json(ret);
     }
 
 });

@@ -90,7 +90,7 @@ module.exports = {
                                         resolve({username: user.username, reputation: user.reputation});
                                     }
                                     else{
-                                        resolve({ststus: "error", error: err});
+                                        resolve({status: "error", error: err});
                                     }
                                 });
                             })
@@ -189,6 +189,9 @@ module.exports = {
                 if (user) {
                     resolve({username: user.username, reputation: user.reputation});
                 }
+                else{
+                    resolve({status: "error", error: "No such User"});
+                }
             });
         });
     },
@@ -207,21 +210,31 @@ module.exports = {
     deleteQuestion: async function(req, res){
         return new Promise(async function (resolve, reject) {
             var user = undefined;
+            var qid = req.params.id;
             await db.collection('questions').findOne({'_id': qid}, function(err, ret1){
-                if (req.params.username == ret1.user)
-                    var user = req.params.username;
-            })
+                if (req.params.user == ret1.user) {
+                    user = req.params.user;
+                    var deletePromise = new Promise(async function (resolve, reject) {
+                        await db.collection('questions').remove({'_id': qid}, function(err, ret1){
+                            if (ret1.nRemoved == 0){
+                                resolve({status:404});
+                            }
+                            else{
+                                resolve({status:200});
+                            }
+                        });
+                    });
+                    deletePromise.then(function(result){
+                        resolve(result);
+                    });
+                }
+                else{ resolve({status:403});}
+            });
             if (user){
-                await db.collection('questions').remove({'_id': qid}, function(err, ret1){
-                    if (ret1.nRemoved == 0){
-                        res.status(404);
-                    }
-                    else{
-                        res.status(200);
-                    }
-                });
+                console.log(user);
+
             }
-            else{ res.status(403);}
+
 
         })
     },
