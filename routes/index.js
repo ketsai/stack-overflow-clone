@@ -89,7 +89,7 @@ router.get('/questions/:id/answers', async function(req, res, next){
     }
 });
 
-router.get('/users/:username', async function(req, res){
+router.get('/user/:username', async function(req, res){
     req.params.user = req.params.username;
     var user = await helper.getUserOfQuestion(req, res);
     if (user.status){
