@@ -250,12 +250,14 @@ router.delete('/questions/:id', async function (req, res){
     if (!userData){
         console.log("userData is undefined");
         res.status(403);
+        res.json({status: "error", error: "User not found"});
     }
     else{
         console.log("got userData");
         req.params.user = userData.username;
         var ret = await helper.deleteQuestion(req, res);
         res.status(ret.status);
+        res.json({status:"OK"});
     }
 
 });
