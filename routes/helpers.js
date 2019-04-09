@@ -1,31 +1,13 @@
 var mongoose = require('mongoose');
 var db = mongoose.connection;
 
-async function findQuestionsWithPhrase(qid, phrase) {
-    return new Promise(async function (resolve, reject) {
-        await db.collection('questions').findOne({ _id: qid }, function (err, question) {
-            if (question) {
-                if (question.title.toLowerCase().includes(phrase) || question.body.toLowerCase().includes(phrase)) {
-                    resolve(question);
-                } else {
-                    for (let i = 0; i < question.tags.length; i++) {
-                        if (question.tags[i].toLowerCase().includes(phrase)) {
-                            resolve(question);
-                        }
-                    }
-                }
-            } else {
-                resolve({ status: "error", error: err })
-            }
-        });
-    });
-}
-
 async function findDocs(word) {
     return new Promise(async function (resolve, reject) {
         await db.collection('index').findOne({ 'word': word }, function (err, ret) {
             if (ret) {
                 resolve(ret.documents);
+            } else {
+                resolve([]);
             }
         });
     });
@@ -82,6 +64,7 @@ module.exports = {
             } else if (v.limit != null) { //invalid limit
                 resolve({ status: "error", error: 'Invalid limit provided' });
             }
+            console.log("SEARCH PARAMS:: timestamp: " + time + "; limit: " + lim + ", phrase: " + v.q);
             if (v.q) { //search with phrase
                 let phrase = v.q.toLowerCase();
                 let array = phrase.split(" ");
@@ -93,77 +76,75 @@ module.exports = {
                     }
                 }
                 docsContainingWords = Array.from(docsContainingWords);
-                await db.collection('questions').find({ timestamp: { $lte: time }, _id: { $in: docsContainingWords } }).sort({ timestamp: -1 }).limit(lim).toArray(function (err, questions) {
-                    if (err) {
-                        resolve({ status: "error", error: err })
-                    }
-                    else {
-                        var count = questions.length;
-                        questions.forEach(function (question) {
-                            if (question && question.timestamp <= time) {
-                                var modifiedquestion =
-                                {
-                                    id: question._id,
-                                    user: question.user,
-                                    title: question.title,
-                                    body: question.body,
-                                    score: question.score,
-                                    view_count: question.viewers.length,
-                                    timestamp: question.timestamp,
-                                    media: question.media,
-                                    tags: question.tags,
-                                    accepted_answer_id: question.accepted_answer_id
-                                }
-                                var get_answer_count = new Promise(async function (resolve, reject) {
-                                    db.collection('answers').countDocuments({ 'questionId': question._id }, function (err, count) {
-                                        if (err) {
-                                            resolve({ status: "error", error: err })
-                                        }
-                                        else {
-                                            resolve(count);
-                                        }
+                if (docsContainingWords.length > 0) {
+                    await db.collection('questions').find({ timestamp: { $lte: time }, _id: { $in: docsContainingWords } }).sort({ timestamp: -1 }).limit(lim).toArray(function (err, questions) {
+                        if (err) {
+                            resolve({ status: "error", error: err })
+                        }
+                        else {
+                            var count = questions.length;
+                            if (count <= 0) {
+                                resolve({ status: "OK", questions: [] });
+                            }
+                            questions.forEach(function (question) {
+                                if (question && question.timestamp <= time) {
+                                    var modifiedquestion =
+                                    {
+                                        id: question._id,
+                                        user: question.user,
+                                        title: question.title,
+                                        body: question.body,
+                                        score: question.score,
+                                        view_count: question.viewers.length,
+                                        timestamp: question.timestamp,
+                                        media: question.media,
+                                        tags: question.tags,
+                                        accepted_answer_id: question.accepted_answer_id
+                                    }
+                                    var get_answer_count = new Promise(async function (resolve, reject) {
+                                        db.collection('answers').countDocuments({ 'questionId': question._id }, function (err, count) {
+                                            if (err) {
+                                                resolve({ status: "error", error: err })
+                                            }
+                                            else {
+                                                resolve(count);
+                                            }
+                                        });
                                     });
-                                });
-                                var get_user = new Promise(async function (resolve, reject) {
-                                    await db.collection('users').findOne({ 'username': question.user }, function (err, user) {
-                                        if (user) {
-                                            resolve({ username: user.username, reputation: user.reputation });
-                                        }
-                                        else {
-                                            resolve({ status: "error", error: err });
-                                        }
+                                    var get_user = new Promise(async function (resolve, reject) {
+                                        await db.collection('users').findOne({ 'username': question.user }, function (err, user) {
+                                            if (user) {
+                                                resolve({ username: user.username, reputation: user.reputation });
+                                            }
+                                            else {
+                                                resolve({ status: "error", error: err });
+                                            }
+                                        });
                                     });
-                                });
-                                get_answer_count.then(function (result) {
-                                    modifiedquestion.answer_count = result;
-                                    get_user.then(function (result1) {
-                                        modifiedquestion.user = result1;
-                                        ret.push(modifiedquestion);
-                                        count--;
-                                        if (count == 0) {
-                                            resolve(ret);
-                                        }
+                                    get_answer_count.then(function (result) {
+                                        modifiedquestion.answer_count = result;
+                                        get_user.then(function (result1) {
+                                            modifiedquestion.user = result1;
+                                            ret.push(modifiedquestion);
+                                            count--;
+                                            if (count == 0) {
+                                                resolve(ret);
+                                            }
+                                        })
                                     })
-                                })
-                            }
-                            else {
-                                count--;
-                                if (count == 0) {
-                                    resolve(ret);
                                 }
-                            }
-                        });
-                    }
-                });
-                //let docsContainingPhrase = [];
-                //for (let i = 0; i < docsContainingWords.length; i++) {
-                //    let docs = await findQuestionsWithPhrase(docsContainingWords[i], phrase);
-                //    console.log(docs);
-                //    for (let j = 0; j < docs.length; j++) {
-                //        docsContainingPhrase.push(docs[j]);
-                //    }
-                //    console.log(docsContainingPhrase);
-                //}
+                                else {
+                                    count--;
+                                    if (count == 0) {
+                                        resolve(ret);
+                                    }
+                                }
+                            });
+                        }
+                    });
+                } else {
+                    resolve({ status: "OK", questions: [] });
+                }
             } else {
                 await db.collection('questions').find({ timestamp: { $lte: time } }).sort({ timestamp: -1 }).limit(lim).toArray(function (err, questions) {
                     if (err) {
@@ -328,6 +309,24 @@ module.exports = {
             await db.collection('questions').findOne({'_id': qid}, function(err, ret1){
                 if (req.params.user == ret1.user) {
                     user = req.params.user;
+                    var text = ret1.title + " " + ret1.body;
+                    for (var i = 0; i < ret1.tags.length; i++) {
+                        text += " " + ret1.tags[i];
+                    }
+                    text = text.toLowerCase().split(" ");
+                    text = new Set(text);
+                    text.forEach(function (word) {
+                        db.collection('index').findOne({ 'word': word }, function (err, ret) {
+                            if (ret) { //word has occurred before: update array
+                                let newDocuments = ret.documents;
+                                var index = newDocuments.indexOf(qid);
+                                if (index > -1) {
+                                    newDocuments.splice(index, 1);
+                                }
+                                db.collection('index').updateOne({ word: word }, { $set: { documents: newDocuments } });
+                            }
+                        });
+                    });
                     var deletePromise = new Promise(async function (resolve, reject) {
                         await db.collection('questions').remove({'_id': qid}, function(err, ret1){
                             if (ret1.nRemoved == 0){
@@ -338,7 +337,7 @@ module.exports = {
                             }
                         });
                     });
-                    deletePromise.then(function(result){
+                    deletePromise.then(function (result) {
                         resolve(result);
                     });
                 }
@@ -346,7 +345,6 @@ module.exports = {
             });
             if (user){
                 console.log(user);
-
             }
 
 
