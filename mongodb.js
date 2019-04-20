@@ -1,6 +1,6 @@
 var mongoose = require('mongoose');
 // mongodb://username:password@serverip:27017/dbname
-var mongoDB = 'mongodb://130.245.170.45:27017/stack-overflow';
+var mongoDB = 'mongodb://192.168.193.199:27017/stack-overflow';
 var options = {
     useNewUrlParser: true 
   }
