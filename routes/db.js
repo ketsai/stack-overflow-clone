@@ -10,6 +10,7 @@ var helper = require('./helpers.js');
 
 function handleError(res, err) {
     console.log(err);
+    res.status(400);
     res.json({ status: "error", error: err });
 }
 
@@ -17,20 +18,24 @@ function handleError(res, err) {
 router.post('/adduser', function (req, res, next) {
     var v = req.body;
     if (v.username == '' || v.email == '' || v.password == '') {
+        res.status(400);
         res.json({ status: "error", error: 'All fields are required; please enter all information.' });
     } else {
         db.collection('users').findOne({ 'username': v.username }, function (err, ret) {
             if (err) return handleError(res,err);
             if (ret != null) {
+                res.status(400);
                 res.json({ status: "error", error: 'Username already registered. Please enter another.' });
             } else {
                 db.collection('users').findOne({ 'email': v.email }, function (err, ret) {
                     if (err) return handleError(res,err);
                     if (ret != null) {
+                        res.status(400);
                         res.json({ status: "error", error: 'Email already registered. Please enter another.' });
                     } else {
                         var regex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
                         if (!regex.test(v.email)) {
+                            res.status(400);
                             res.json({ status: "error", error: 'Please enter a valid email address.' });
                         } else {
                             var salt = bcrypt.genSaltSync(10); // Salt and hash the given password, then store it in the database
@@ -94,6 +99,7 @@ router.post('/verify', function (req, res, next) {
             db.collection('users').updateOne({ 'email': v.email }, { $set: { verified: true }});
             res.json({ status: "OK", msg: 'Your account is now verified!' });
         } else {
+            res.status(403);
             res.json({ status: "error", error: 'Invalid verification key' });
         }
     })
@@ -105,6 +111,7 @@ router.post('/login', function (req, res, next) {
     db.collection('users').findOne({ 'username': v.username }, function (err, ret) {
         if (err) return handleError(res,err);
         if (ret != null && !ret.verified) {
+            res.status(403);
             res.json({ status: "error", error: 'Please verify your account.' });
         }else if (ret != null && bcrypt.compareSync(v.password, ret.password)) { // Ensure that the given password matches the hashed password
             var hash = crypto.createHash('sha256'); // Randomly generated session ID
@@ -123,6 +130,7 @@ router.post('/login', function (req, res, next) {
                 );
             });
         } else {
+            res.status(403);
             res.json({ status: "error", error: 'Invalid login credentials' });
         }
     })
@@ -144,6 +152,7 @@ router.post('/questions/add', async function (req, res, next) {
 
         var v = req.body;
         if (v.title == null || v.body == null || v.tags == null) {
+            res.status(400);
             res.json({status: "error", error: 'All fields are required; please enter all information.'});
         }
         else {
@@ -187,7 +196,8 @@ router.post('/questions/add', async function (req, res, next) {
             });
         }
     }
-    else{
+    else {
+        res.status(401);
         res.json({status: "error", error: "Please log into a verified account."});
     }
 });
@@ -199,6 +209,7 @@ router.post('/questions/:id/answers/add', async function(req, res, next) {
         var qid = req.params.id;
         var v = req.body;
         if (v.body == null) {
+            res.status(400);
             res.json({status: "error", error: 'You must fill in an answer'});
         }
         else {
@@ -221,8 +232,9 @@ router.post('/questions/:id/answers/add', async function(req, res, next) {
             });
         }
     }
-    else{
-        res.json({status: "error", error: "You're not logged in you scrub"});
+    else {
+        res.status(401);
+        res.json({ status: "error", error: "Please log into a verified account."});
     }
 });
 

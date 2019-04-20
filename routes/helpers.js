@@ -57,11 +57,13 @@ module.exports = {
                 time = parseFloat(v.timestamp);
                 console.log(time);
             } else if (v.timestamp != null && !parseFloat(v.timestamp)) { //invalid Unix time representation
+                res.status(400);
                 resolve({ status: "error", error: 'Invalid timestamp format' });
             }
             if (v.limit != null && parseInt(v.limit) >= 0 && parseInt(v.limit) <= 100) { //valid limit provided
                 lim = parseInt(v.limit);
             } else if (v.limit != null) { //invalid limit
+                res.status(400);
                 resolve({ status: "error", error: 'Invalid limit provided' });
             }
             console.log("SEARCH PARAMS:: timestamp: " + time + "; limit: " + lim + ", phrase: " + v.q);
@@ -79,6 +81,7 @@ module.exports = {
                 if (docsContainingWords.length > 0) {
                     await db.collection('questions').find({ timestamp: { $lte: time }, _id: { $in: docsContainingWords } }).sort({ timestamp: -1 }).limit(lim).toArray(function (err, questions) {
                         if (err) {
+                            res.status(400);
                             resolve({ status: "error", error: err })
                         }
                         else {
@@ -104,6 +107,7 @@ module.exports = {
                                     var get_answer_count = new Promise(async function (resolve, reject) {
                                         db.collection('answers').countDocuments({ 'questionId': question._id }, function (err, count) {
                                             if (err) {
+                                                res.status(400);
                                                 resolve({ status: "error", error: err })
                                             }
                                             else {
@@ -117,6 +121,7 @@ module.exports = {
                                                 resolve({ username: user.username, reputation: user.reputation });
                                             }
                                             else {
+                                                res.status(400);
                                                 resolve({ status: "error", error: err });
                                             }
                                         });
@@ -148,6 +153,7 @@ module.exports = {
             } else {
                 await db.collection('questions').find({ timestamp: { $lte: time } }).sort({ timestamp: -1 }).limit(lim).toArray(function (err, questions) {
                     if (err) {
+                        res.status(400);
                         resolve({ status: "error", error: err })
                     }
                     else {
@@ -171,6 +177,7 @@ module.exports = {
                                 var get_answer_count = new Promise(async function (resolve, reject) {
                                     db.collection('answers').countDocuments({ 'questionId': question._id }, function (err, count) {
                                         if (err) {
+                                            res.status(400);
                                             resolve({ status: "error", error: err })
                                         }
                                         else {
@@ -184,6 +191,7 @@ module.exports = {
                                             resolve({ username: user.username, reputation: user.reputation });
                                         }
                                         else {
+                                            res.status(400);
                                             resolve({ status: "error", error: err });
                                         }
                                     });
@@ -238,6 +246,7 @@ module.exports = {
                     resolve(question);
                 }
                 else {
+                    res.status(404);
                     resolve({ status: "error", error: "No question with this ID" });
                 }
 
@@ -250,6 +259,7 @@ module.exports = {
             var qid = req.params.id.toString();
             await db.collection('questions').findOne({ '_id': qid }, function (err, ret1) {
                 if (!ret1) {
+                    res.status(404);
                     resolve({ status: "error", error: "No question with this ID" });
                 }
             });
@@ -284,7 +294,8 @@ module.exports = {
                 if (user) {
                     resolve({ username: user.username, reputation: user.reputation });
                 }
-                else{
+                else {
+                    res.status(404);
                     resolve({status: "error", error: "No such User"});
                 }
             });
@@ -297,6 +308,7 @@ module.exports = {
                     resolve({ email: user.email, reputation: user.reputation });
                 }
                 else {
+                    res.status(404);
                     resolve({ status: "error", error: "No such User" });
                 }
             });
@@ -369,6 +381,7 @@ module.exports = {
             var username = req.params.username.toString();
             await db.collection('users').findOne({ 'username': username }, function (err, ret1) {
                 if (!ret1) {
+                    res.status(404);
                     resolve({ status: "error", error: "User not found." });
                 }
             });
@@ -387,6 +400,7 @@ module.exports = {
             var username = req.params.username.toString();
             await db.collection('users').findOne({ 'username': username }, function (err, ret1) {
                 if (!ret1) {
+                    res.status(404);
                     resolve({ status: "error", error: "User not found." });
                 }
             });
