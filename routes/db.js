@@ -8,6 +8,15 @@ var nodemailer = require('nodemailer');
 var shortid = require('shortid');
 var helper = require('./helpers.js');
 
+var transporter = nodemailer.createTransport({
+    host: "localhost",
+    port: 25,
+    secure: false,
+    tls: {
+        rejectUnauthorized: false
+    },
+});
+
 function handleError(res, err) {
     console.log(err);
     res.status(400);
@@ -50,14 +59,6 @@ router.post('/adduser', function (req, res, next) {
                             db.collection('users').insertOne(user);
 
                             var key = crypto.createHash('md5').update(v.email + "salty_salt").digest('hex'); //EMAIL THIS KEY TO EMAIL ADDRESS
-                            var transporter = nodemailer.createTransport({
-                                host: "localhost",
-                                port: 25,
-                                secure: false,
-                                tls: {
-                                    rejectUnauthorized: false
-                                },
-                            });
                             let mailOptions = {
                                 from: '"root@cse356.cloud.compas.cs.stonybrook.edu', // sender address
                                 to: user.email, // list of receivers
@@ -65,7 +66,6 @@ router.post('/adduser', function (req, res, next) {
                                 text: "validation key: <" + key + ">", // plain text body
                             };
                             transporter.sendMail(mailOptions);
-                            transporter.close();
 
                             //automatically log in to new account
                             var hash = crypto.createHash('sha256'); // Randomly generated session ID
