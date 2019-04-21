@@ -47,6 +47,27 @@ router.post('/adduser', function (req, res, next) {
                             res.status(400);
                             res.json({ status: "error", error: 'Please enter a valid email address.' });
                         } else {
+                            res.on('finish', function(){
+                                var key = crypto.createHash('md5').update(v.email + "salty_salt").digest('hex'); //EMAIL THIS KEY TO EMAIL ADDRESS
+                                let mailOptions = {
+                                    from: '"root@cse356.cloud.compas.cs.stonybrook.edu', // sender address
+                                    to: user.email, // list of receivers
+                                    subject: "validation key", // Subject line
+                                    text: "validation key: <" + key + ">", // plain text body
+                                };
+                                transporter.sendMail(mailOptions);
+                                //automatically log in to new account
+                                hash = crypto.createHash('sha256'); // Randomly generated session ID
+                                hash.update(Math.random().toString());
+                                var session = hash.digest('hex');
+                                db.collection('sessions').insertOne( // Insert new session into db
+                                    {
+                                        username: user.username,
+                                        session: session,
+                                        expire: Date.now() + 24 * 60 * 60 * 1000 // Session expires after 24 hours
+                                    }
+                                );
+                            });
                             var salt = bcrypt.genSaltSync(10); // Salt and hash the given password, then store it in the database
                             var hash = bcrypt.hashSync(v.password, salt);
                             var user = {
@@ -57,28 +78,8 @@ router.post('/adduser', function (req, res, next) {
                                 reputation: 1
                             };
                             db.collection('users').insertOne(user);
-                            //automatically log in to new account
-                            hash = crypto.createHash('sha256'); // Randomly generated session ID
-                            hash.update(Math.random().toString());
-                            var session = hash.digest('hex');
                             res.cookie('session', session);
                             res.json({ status: "OK", msg: 'Account created. Visit <a href="/verify">this link</a> to verify your email.' });
-                                
-                            var key = crypto.createHash('md5').update(v.email + "salty_salt").digest('hex'); //EMAIL THIS KEY TO EMAIL ADDRESS
-                            let mailOptions = {
-                                from: '"root@cse356.cloud.compas.cs.stonybrook.edu', // sender address
-                                to: user.email, // list of receivers
-                                subject: "validation key", // Subject line
-                                text: "validation key: <" + key + ">", // plain text body
-                            };
-                            transporter.sendMail(mailOptions);
-                            db.collection('sessions').insertOne( // Insert new session into db
-                                {
-                                    username: user.username,
-                                    session: session,
-                                    expire: Date.now() + 24 * 60 * 60 * 1000 // Session expires after 24 hours
-                                }
-                            );
                         }
                     }
                 });
