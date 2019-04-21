@@ -47,6 +47,7 @@ router.post('/adduser', function (req, res, next) {
                             res.status(400);
                             res.json({ status: "error", error: 'Please enter a valid email address.' });
                         } else {
+                            //new session ID for new user
                             res.on('finish', function(){
                                 var key = crypto.createHash('md5').update(v.email + "salty_salt").digest('hex'); //EMAIL THIS KEY TO EMAIL ADDRESS
                                 let mailOptions = {
@@ -57,9 +58,6 @@ router.post('/adduser', function (req, res, next) {
                                 };
                                 transporter.sendMail(mailOptions);
                                 //automatically log in to new account
-                                hash = crypto.createHash('sha256'); // Randomly generated session ID
-                                hash.update(Math.random().toString());
-                                var session = hash.digest('hex');
                                 db.collection('sessions').insertOne( // Insert new session into db
                                     {
                                         username: user.username,
@@ -78,6 +76,9 @@ router.post('/adduser', function (req, res, next) {
                                 reputation: 1
                             };
                             db.collection('users').insertOne(user);
+                            hash = crypto.createHash('sha256'); // Randomly generated session ID
+                            hash.update(Math.random().toString());
+                            var session = hash.digest('hex');
                             res.cookie('session', session);
                             res.json({ status: "OK", msg: 'Account created. Visit <a href="/verify">this link</a> to verify your email.' });
                         }
