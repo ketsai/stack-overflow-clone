@@ -1,13 +1,88 @@
 var mongoose = require('mongoose');
 var db = mongoose.connection;
 
-async function findDocs(word) {
+async function findWordDocs(word) {
     return new Promise(async function (resolve, reject) {
         await db.collection('index').findOne({ 'word': word }, function (err, ret) {
             if (ret) {
                 resolve(ret.documents);
             } else {
                 resolve([]);
+            }
+        });
+    });
+}
+
+async function findTagDocs(tag) {
+    return new Promise(async function (resolve, reject) {
+        await db.collection('tags').findOne({ 'word': word }, function (err, ret) {
+            if (ret) {
+                resolve(ret.documents);
+            } else {
+                resolve([]);
+            }
+        });
+    });
+}
+
+async function prepareSearchResults(questions) {
+    return new Promise(async function (resolve, reject) {
+        var ret = [];
+        var count = questions.length;
+        if (count <= 0) {
+            resolve({ status: "OK", questions: [] });
+        }
+        questions.forEach(function (question) {
+            if (question) {
+                var modifiedquestion =
+                {
+                    id: question._id,
+                    user: question.user,
+                    title: question.title,
+                    body: question.body,
+                    score: question.score,
+                    view_count: question.viewers.length,
+                    timestamp: question.timestamp,
+                    media: question.media,
+                    tags: question.tags,
+                    accepted_answer_id: question.accepted_answer_id
+                }
+                var get_answer_count = new Promise(async function (resolve, reject) {
+                    db.collection('answers').countDocuments({ 'questionId': question._id }, function (err, count) {
+                        if (err) {
+                            resolve({ status: "error", error: err })
+                        }
+                        else {
+                            resolve(count);
+                        }
+                    });
+                });
+                var get_user = new Promise(async function (resolve, reject) {
+                    await db.collection('users').findOne({ 'username': question.user }, function (err, user) {
+                        if (user) {
+                            resolve({ username: user.username, reputation: user.reputation });
+                        }
+                        else {
+                            resolve({ status: "error", error: err });
+                        }
+                    });
+                });
+                get_answer_count.then(function (result) {
+                    modifiedquestion.answer_count = result;
+                    get_user.then(function (result1) {
+                        modifiedquestion.user = result1;
+                        ret.push(modifiedquestion);
+                        count--;
+                        if (count == 0) {
+                            resolve(ret);
+                        }
+                    })
+                })
+            } else {
+                count--;
+                if (count == 0) {
+                    resolve(ret);
+                }
             }
         });
     });
@@ -49,10 +124,14 @@ module.exports = {
     //search for {res.limit} responses at or before {res.timestamp}
     search: async function (req, res) {
         return new Promise(async function (resolve, reject) {
-            var ret = [];
             var v = req.body;
             var time = Date.now() / 1000;
             var lim = 25;
+            var has_media = { $exists: true};
+            var accepted = { $exists: true };
+            var tags = { $exists: true };
+            var _id = { $exists: true };
+            var sort_by = 'score';
             if (v.timestamp != null && parseFloat(v.timestamp)) { //valid Unix time representation
                 time = parseFloat(v.timestamp);
                 console.log(time);
@@ -60,164 +139,55 @@ module.exports = {
                 res.status(400);
                 resolve({ status: "error", error: 'Invalid timestamp format' });
             }
-            if (v.limit != null && parseInt(v.limit) >= 0 && parseInt(v.limit) <= 100) { //valid limit provided
+            if (v.limit != null && parseInt(v.limit) >= 1 && parseInt(v.limit) <= 100) { //valid limit provided
                 lim = parseInt(v.limit);
             } else if (v.limit != null) { //invalid limit
                 res.status(400);
                 resolve({ status: "error", error: 'Invalid limit provided' });
             }
-            console.log("SEARCH PARAMS:: timestamp: " + time + "; limit: " + lim + ", phrase: " + v.q);
+            if (v.sort_by != null && v.sort_by == 'score' || v.sort_by == 'timestamp') { //valid limit provided
+                sort_by = v.sort_by;
+            } else if (v.sort_by != null) { //invalid sort operator
+                res.status(400);
+                resolve({ status: "error", error: 'Invalid sort_by input' });
+            }
+            if (v.tags) {
+                tags = { $in: v.tags };
+            }
+            if (v.has_media) {
+                has_media = {$nin: [null, []]};
+            }
+            if (v.accepted) {
+                accepted = {$ne: null};
+            }
+            console.log("SEARCH PARAMS:: timestamp: " + time + "; limit: " + lim + ", phrase: " + v.q + ", tags: " + v.tags);
             if (v.q) { //search with phrase
+                let eligibleDocs = new Set();
                 let phrase = v.q.toLowerCase();
                 let array = phrase.split(" ");
-                let docsContainingWords = new Set();
                 for (let i = 0; i < array.length; i++) {
-                    let docs = await findDocs(array[i]);
+                    let docs = await findWordDocs(array[i]);
                     for (let j = 0; j < docs.length; j++) {
-                        docsContainingWords.add(docs[j]);
+                        eligibleDocs.add(docs[j]);
                     }
                 }
-                docsContainingWords = Array.from(docsContainingWords);
-                if (docsContainingWords.length > 0) {
-                    await db.collection('questions').find({ timestamp: { $lte: time }, _id: { $in: docsContainingWords } }).sort({ timestamp: -1 }).limit(lim).toArray(function (err, questions) {
-                        if (err) {
-                            res.status(400);
-                            resolve({ status: "error", error: err })
-                        }
-                        else {
-                            var count = questions.length;
-                            if (count <= 0) {
-                                resolve({ status: "OK", questions: [] });
-                            }
-                            questions.forEach(function (question) {
-                                if (question && question.timestamp <= time) {
-                                    var modifiedquestion =
-                                    {
-                                        id: question._id,
-                                        user: question.user,
-                                        title: question.title,
-                                        body: question.body,
-                                        score: question.score,
-                                        view_count: question.viewers.length,
-                                        timestamp: question.timestamp,
-                                        media: question.media,
-                                        tags: question.tags,
-                                        accepted_answer_id: question.accepted_answer_id
-                                    }
-                                    var get_answer_count = new Promise(async function (resolve, reject) {
-                                        db.collection('answers').countDocuments({ 'questionId': question._id }, function (err, count) {
-                                            if (err) {
-                                                res.status(400);
-                                                resolve({ status: "error", error: err })
-                                            }
-                                            else {
-                                                resolve(count);
-                                            }
-                                        });
-                                    });
-                                    var get_user = new Promise(async function (resolve, reject) {
-                                        await db.collection('users').findOne({ 'username': question.user }, function (err, user) {
-                                            if (user) {
-                                                resolve({ username: user.username, reputation: user.reputation });
-                                            }
-                                            else {
-                                                res.status(400);
-                                                resolve({ status: "error", error: err });
-                                            }
-                                        });
-                                    });
-                                    get_answer_count.then(function (result) {
-                                        modifiedquestion.answer_count = result;
-                                        get_user.then(function (result1) {
-                                            modifiedquestion.user = result1;
-                                            ret.push(modifiedquestion);
-                                            count--;
-                                            if (count == 0) {
-                                                resolve(ret);
-                                            }
-                                        })
-                                    })
-                                }
-                                else {
-                                    count--;
-                                    if (count == 0) {
-                                        resolve(ret);
-                                    }
-                                }
-                            });
-                        }
-                    });
-                } else {
-                    resolve({ status: "OK", questions: [] });
-                }
-            } else {
-                await db.collection('questions').find({ timestamp: { $lte: time } }).sort({ timestamp: -1 }).limit(lim).toArray(function (err, questions) {
-                    if (err) {
-                        res.status(400);
-                        resolve({ status: "error", error: err })
-                    }
-                    else {
-                        var count = questions.length;
-                        questions.forEach(function (question) {
-                            if (question && question.timestamp <= time) {
-                                var modifiedquestion =
-                                {
-                                    id: question._id,
-                                    user: question.user,
-                                    title: question.title,
-                                    body: question.body,
-                                    score: question.score,
-                                    view_count: question.viewers.length,
-                                    timestamp: question.timestamp,
-                                    media: question.media,
-                                    tags: question.tags,
-                                    accepted_answer_id: question.accepted_answer_id
-                                }
-
-                                var get_answer_count = new Promise(async function (resolve, reject) {
-                                    db.collection('answers').countDocuments({ 'questionId': question._id }, function (err, count) {
-                                        if (err) {
-                                            res.status(400);
-                                            resolve({ status: "error", error: err })
-                                        }
-                                        else {
-                                            resolve(count);
-                                        }
-                                    });
-                                });
-                                var get_user = new Promise(async function (resolve, reject) {
-                                    await db.collection('users').findOne({ 'username': question.user }, function (err, user) {
-                                        if (user) {
-                                            resolve({ username: user.username, reputation: user.reputation });
-                                        }
-                                        else {
-                                            res.status(400);
-                                            resolve({ status: "error", error: err });
-                                        }
-                                    });
-                                })
-                                get_answer_count.then(function (result) {
-                                    modifiedquestion.answer_count = result;
-                                    get_user.then(function (result1) {
-                                        modifiedquestion.user = result1;
-                                        ret.push(modifiedquestion);
-                                        count--;
-                                        if (count == 0) {
-                                            resolve(ret);
-                                        }
-                                    })
-                                })
-                            }
-                            else {
-                                count--;
-                                if (count == 0) {
-                                    resolve(ret);
-                                }
-                            }
-                        });
-                    }
-                });
+                eligibleDocs = Array.from(eligibleDocs);
+                _id = {$in: eligibleDocs};
             }
+            await db.collection('questions').find({ timestamp: { $lte: time }, _id: _id, tags: tags, media: has_media, accepted_answer_id: accepted }).sort({ sort_by: -1 }).limit(lim).toArray(async function (err, questions) {
+                if (err) {
+                    res.status(400);
+                    resolve({ status: "error", error: err });
+                } else {
+                    if (questions.length > 0) {
+                        let result = await prepareSearchResults(questions);
+                        resolve(result);
+                    } else {
+                        console.log("no results");
+                        resolve([]);
+                    }
+                }
+            });
         });
     },
     getQuestion: async function (req, res) {
@@ -296,7 +266,7 @@ module.exports = {
                 }
                 else {
                     res.status(404);
-                    resolve({status: "error", error: "No such User"});
+                    resolve({ status: "error", error: "No such User" });
                 }
             });
         });
@@ -326,7 +296,7 @@ module.exports = {
             resolve(ret);
         });
     },
-    deleteQuestion: async function(req, res){
+    deleteQuestion: async function (req, res) {
         return new Promise(async function (resolve, reject) {
             var user = undefined;
             var qid = req.params.id;
@@ -383,11 +353,9 @@ module.exports = {
                     }
                 }
             });
-            if (user){
+            if (user) {
                 console.log(user);
             }
-
-
         })
     },
     //return an array of IDs for questions asked by a user

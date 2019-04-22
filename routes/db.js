@@ -19,6 +19,15 @@ var upload = multer({storage: storage});
 var path = require('path');
 var fs = require('fs');
 
+var transporter = nodemailer.createTransport({
+    host: "localhost",
+    port: 25,
+    secure: false,
+    tls: {
+        rejectUnauthorized: false
+    },
+});
+
 function handleError(res, err) {
     console.log(err);
     res.status(400);
@@ -49,6 +58,25 @@ router.post('/adduser', function (req, res, next) {
                             res.status(400);
                             res.json({ status: "error", error: 'Please enter a valid email address.' });
                         } else {
+                            //new session ID for new user
+                            res.on('finish', function(){
+                                var key = crypto.createHash('md5').update(v.email + "salty_salt").digest('hex'); //EMAIL THIS KEY TO EMAIL ADDRESS
+                                let mailOptions = {
+                                    from: '"root@cse356.cloud.compas.cs.stonybrook.edu', // sender address
+                                    to: user.email, // list of receivers
+                                    subject: "validation key", // Subject line
+                                    text: "validation key: <" + key + ">", // plain text body
+                                };
+                                transporter.sendMail(mailOptions);
+                                //automatically log in to new account
+                                db.collection('sessions').insertOne( // Insert new session into db
+                                    {
+                                        username: user.username,
+                                        session: session,
+                                        expire: Date.now() + 24 * 60 * 60 * 1000 // Session expires after 24 hours
+                                    }
+                                );
+                            });
                             var salt = bcrypt.genSaltSync(10); // Salt and hash the given password, then store it in the database
                             var hash = bcrypt.hashSync(v.password, salt);
                             var user = {
@@ -59,39 +87,11 @@ router.post('/adduser', function (req, res, next) {
                                 reputation: 1
                             };
                             db.collection('users').insertOne(user);
-
-                            var key = crypto.createHash('md5').update(v.email + "salty_salt").digest('hex'); //EMAIL THIS KEY TO EMAIL ADDRESS
-                            var transporter = nodemailer.createTransport({
-                                host: "localhost",
-                                port: 25,
-                                secure: false,
-                                tls: {
-                                    rejectUnauthorized: false
-                                },
-                            });
-                            let mailOptions = {
-                                from: '"root@cse356.cloud.compas.cs.stonybrook.edu', // sender address
-                                to: user.email, // list of receivers
-                                subject: "validation key", // Subject line
-                                text: "validation key: <" + key + ">", // plain text body
-                            };
-                            transporter.sendMail(mailOptions);
-                            transporter.close();
-
-                            //automatically log in to new account
-                            var hash = crypto.createHash('sha256'); // Randomly generated session ID
+                            hash = crypto.createHash('sha256'); // Randomly generated session ID
                             hash.update(Math.random().toString());
                             var session = hash.digest('hex');
-                            db.collection('sessions').insertOne( // New session
-                                {
-                                    username: user.username,
-                                    session: session,
-                                    expire: Date.now() + 24 * 60 * 60 * 1000 // Session expires after 24 hours
-                                }, function () {
-                                    res.cookie('session', session);
-                                    res.json({ status: "OK", msg: 'Account created. Visit <a href="/verify">this link</a> to verify your email.' });
-                                }
-                            )
+                            res.cookie('session', session);
+                            res.json({ status: "OK", msg: 'Account created. Visit <a href="/verify">this link</a> to verify your email.' });
                         }
                     }
                 });
@@ -186,9 +186,6 @@ router.post('/questions/add', async function (req, res, next) {
             }
             //insert each unique word in the body, title, and tags into inverted index to search
             var text = v.title + " " + v.body;
-            for (var i = 0; i < v.tags.length; i++) {
-                text += " " + v.tags[i];
-            }
             text = text.toLowerCase().split(" ");
             text = new Set(text);
             text.forEach(function (word) {
@@ -202,6 +199,25 @@ router.post('/questions/add', async function (req, res, next) {
                     }
                 });
             });
+            //if (v.tags) {
+            //    var tags = v.tags[0];
+            //    for (var i = 1; i < v.tags.length; i++) {
+            //        tags += " " + v.tags[i];
+            //    }
+            //    tags = tags.toLowerCase().split(" ");
+            //    tags = new Set(tags);
+            //    tags.forEach(function (word) {
+            //        db.collection('tags').findOne({ 'word': word }, function (err, ret) {
+            //            if (ret) { //word has occurred before: update array
+            //                let newDocuments = ret.documents;
+            //                newDocuments.push(qid);
+            //                db.collection('tags').updateOne({ word: word }, { $set: { documents: newDocuments } });
+            //            } else { //word hasn't occured before; insert new document with new array
+            //                db.collection('tags').insertOne({ word: word, documents: [qid] });
+            //            }
+            //        });
+            //    });
+            //}
             db.collection('questions').insertOne(question, function () {
                 res.json({status: "OK", id: qid});
             });
@@ -255,6 +271,9 @@ router.post('/search', async function (req, res, next) {
     if (ret.constructor === Array) {
         res.json({status:"OK", questions:ret});
     } else {
+        if (ret.status = "error") {
+            res.status(400);
+        }
         res.json(ret);
     }
 
