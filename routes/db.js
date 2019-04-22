@@ -2,11 +2,22 @@ express = require('express');
 var router = express.Router();
 var mongoose = require('mongoose');
 var db = mongoose.connection;
+var cassandra = require('cassandra-driver');
+const client = new cassandra.Client({
+    contactPoints: ['192.168.193.253'],
+    localDataCenter: 'datacenter1',
+    keyspace: 'stackoverflow'
+});
 var crypto = require('crypto');
 var bcrypt = require('bcryptjs');
 var nodemailer = require('nodemailer');
 var shortid = require('shortid');
 var helper = require('./helpers.js');
+const multer = require('multer');
+const storage = multer.memoryStorage();
+var upload = multer({storage: storage});
+var path = require('path');
+var fs = require('fs');
 
 function handleError(res, err) {
     console.log(err);
@@ -268,10 +279,127 @@ router.delete('/questions/:id', async function (req, res){
         console.log("got userData");
         req.params.user = userData.username;
         var ret = await helper.deleteQuestion(req, res);
-        res.status(ret.status);
-        res.json({status:"OK"});
+        console.log(ret);
+        if (ret.media){
+            console.log("media is not null");
+            var query = "DELETE FROM stackoverflow.media WHERE id = ?";
+            ret.media.forEach(function(media_id){
+                client.execute(query, [media_id], function(err, result){
+                    if (err) {console.log(err)}
+                });
+            })
+        }
+        res.json({status:ret.status});
     }
 
+});
+
+router.post('/questions/:id/upvote', async function (req, res) {
+   let userData = await helper.getUserData(req, res);
+   if (!userData){
+       console.log("userData is undefined in upvote question");
+       res.status(403);
+       res.json({status:"error", error: "User must be logged in to upvote"});
+   }
+   else{
+       console.log("user is logged in for upvote question operation");
+       req.params.user = userData.username;
+       req.params.database = 'questions';
+       var ret = await helper.getScore(req, res);
+       res.json(ret);
+   }
+});
+
+router.post('/answers/:id/upvote', async function (req, res) {
+    let userData = await helper.getUserData(req, res);
+    if (!userData){
+        console.log("userData is undefined in upvote answer");
+        res.status(403);
+        res.json({status:"error", error: "User must be logged in to upvote"});
+    }
+    else{
+        console.log("user is logged in for upvote answer operation");
+        req.params.user = userData.username;
+        req.params.database = 'answers';
+        var ret = await helper.getScore(req, res);
+
+    }
+});
+
+router.post('/answers/:id/accept', async function (req, res) {
+    let userData = await helper.getUserData(req, res);
+    if (!userData){
+        console.log("userData is undefined in accept answer");
+        res.status(403);
+        res.json({status:"error", error: "User must be logged in to accept an answer"});
+    }
+    else{
+        console.log("user is logged in for accept answer operation");
+        req.params.user = userData.username;
+        var ret = await helper.acceptAnswer(req, res);
+        res.json(ret);
+    }
+});
+
+router.post('/addmedia', upload.single('content'), async function (req, res){
+    let userData = await helper.getUserData(req, res);
+    if (!userData){
+        console.log("userData is undefined in add media");
+        res.status(403);
+        res.json({status:"error", error: "User must be logged in to add media"});
+    }
+    else{
+        console.log("user is logged in for add media operation");
+        req.params.user = userData.username;
+        var media_id = shortid.generate();
+        var query = "INSERT INTO stackoverflow.media(id, ext, content) VALUES (?,?,?)";
+        var originalname = req.file.originalname.split(".");
+        var extension = originalname.pop();
+        const values = [media_id, extension, req.file.buffer];
+        client.execute(query, values, function (err, result){
+            if (err){
+                console.log(err);
+                res.status(404);
+                res.json({status:"error", error:err});
+            }
+            else{
+                res.json({status: "OK", id: media_id});
+            }
+        });
+    }
+})
+
+
+router.get('/media/:id', function(req, res){
+    var media_id = req.params.id;
+    const query = 'SELECT * FROM stackoverflow.media WHERE id = ? ';
+    client.execute(query, [media_id], function(err, result){
+        if (err){
+            res.status(404);
+            res.json({status: "error", error: err});
+        }
+        else{
+            if (!result.rows[0]){
+                res.json({status:"error", error:"Media File Does Not Exist"});
+            }
+            else {
+                var id = result.rows[0].id;
+                var extension = result.rows[0].ext;
+                var content = result.rows[0].content;
+                var imgPath = "/home/ubuntu/stack-overflow-clone/media/" + id + extension;
+                res.setHeader('Content-Type', 'image/' + extension);
+                fs.writeFile(imgPath, content, (err) => {
+                    if (err) {
+                        res.status(404);
+                        res.json({status: "error", error: err});
+                    }
+                    else {
+                        res.sendFile(imgPath);
+                    }
+                });
+            }
+        }
+    });
 });
 
 module.exports = router;

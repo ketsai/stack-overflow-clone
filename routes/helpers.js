@@ -331,41 +331,57 @@ module.exports = {
             var user = undefined;
             var qid = req.params.id;
             await db.collection('questions').findOne({'_id': qid}, function(err, ret1){
-                if (req.params.user == ret1.user) {
-                    user = req.params.user;
-                    var text = ret1.title + " " + ret1.body;
-                    for (var i = 0; i < ret1.tags.length; i++) {
-                        text += " " + ret1.tags[i];
-                    }
-                    text = text.toLowerCase().split(" ");
-                    text = new Set(text);
-                    text.forEach(function (word) {
-                        db.collection('index').findOne({ 'word': word }, function (err, ret) {
-                            if (ret) { //word has occurred before: update array
-                                let newDocuments = ret.documents;
-                                var index = newDocuments.indexOf(qid);
-                                if (index > -1) {
-                                    newDocuments.splice(index, 1);
-                                }
-                                db.collection('index').updateOne({ word: word }, { $set: { documents: newDocuments } });
-                            }
-                        });
-                    });
-                    var deletePromise = new Promise(async function (resolve, reject) {
-                        await db.collection('questions').remove({'_id': qid}, function(err, ret1){
-                            if (ret1.nRemoved == 0){
-                                resolve({status:404});
-                            }
-                            else{
-                                resolve({status:200});
-                            }
-                        });
-                    });
-                    deletePromise.then(function (result) {
-                        resolve(result);
-                    });
+                if ( ret1 == null){
+                    res.status(404);
+                    resolve({status:"error"});
                 }
-                else{ resolve({status:403});}
+                else {
+                    if (req.params.user == ret1.user) {
+                        user = req.params.user;
+                        var text = ret1.title + " " + ret1.body;
+                        for (var i = 0; i < ret1.tags.length; i++) {
+                            text += " " + ret1.tags[i];
+                        }
+                        text = text.toLowerCase().split(" ");
+                        text = new Set(text);
+                        text.forEach(function (word) {
+                            db.collection('index').findOne({'word': word}, function (err, ret) {
+                                if (ret) { //word has occurred before: update array
+                                    let newDocuments = ret.documents;
+                                    var index = newDocuments.indexOf(qid);
+                                    if (index > -1) {
+                                        newDocuments.splice(index, 1);
+                                    }
+                                    db.collection('index').updateOne({word: word}, {$set: {documents: newDocuments}});
+                                }
+                            });
+                        });
+                        var deletePromise = new Promise(async function (resolve, reject) {
+                            await db.collection('questions').deleteOne({'_id': qid}, function (err, ret2) {
+                                if (ret2.nRemoved == 0) {
+                                    res.status(404)
+                                    resolve({status: "error"});
+                                }
+                                else {
+                                    resolve({status: "OK", media: ret1.media});
+                                }
+                            });
+                        });
+                        var deleteAnswersPromise = new Promise(async function (resolve, reject) {
+                            await db.collection('answers').remove({'questionId': qid}, function (err, ret2) {
+                                resolve(ret2);
+                            })
+                        })
+                        deletePromise.then(function (result) {
+                            deleteAnswersPromise.then(function (result2) {
+                                resolve(result);
+                            })
+                        });
+                    }
+                    else {
+                        resolve({status: 403});
+                    }
+                }
             });
             if (user){
                 console.log(user);
@@ -412,4 +428,134 @@ module.exports = {
             resolve(ret);
         });
     },
+    getScore: async function (req, res) {
+        return new Promise(async function(resolve,reject){
+            var id = req.params.id;
+            var username = req.params.user;
+            var upvote = req.params.upvote;
+            var finalupvote = null;
+            var database = req.params.database;
+            if (!upvote){ upvote = true; }
+            await db.collection(database).findOne({ '_id': id }, function (err, ret1) {
+                if (!ret1){
+                    res.status(404);
+                    resolve({status: "error", error: "Item does not exist in " + database});
+                }
+                else{
+                    var upvotePromise = new Promise(async function (resolve, reject){
+                        await db.collection('score').findOne({'_id': id}, function(err, ret2){
+                            if (!ret2){
+                                console.log("Item not in score collection");
+                                var upvotes = [];
+                                var downvotes = []
+                                if (upvote){ upvotes.push(username); }
+                                else{ downvotes.push(username); }
+                                var score = {
+                                    _id: id,
+                                    upvotes: upvotes,
+                                    downvotes: downvotes
+                                }
+                                db.collection('score').insertOne(score, function(){
+                                    resolve({score: upvotes.length - downvotes.length})
+                                })
+                            }
+                            else{
+                                console.log("Item in score collection");
+                                console.log(ret2);
+                                var upvotes = ret2.upvotes;
+                                var downvotes = ret2.downvotes;
+                                if (upvotes.includes(username)){
+                                    upvotes = upvotes.filter( e => e !== username);
+                                    finalupvote = false;
+                                }
+                                else if (downvotes.includes(username)) {
+                                    downvotes = downvotes.filter( e => e !== username);
+                                    finalupvote = true;
+                                }
+                                else{
+                                    if (upvote){ upvotes.push(username); }
+                                    else{ downvotes.push(username); }
+                                }
+                                db.collection('score').updateOne({'_id': id}, {$set : {upvotes: upvotes, downvotes: downvotes}});
+                                resolve({score: upvotes.length - downvotes.length})
+                            }
+                        })
+                    });
+                    var reputationPromise = new Promise(async function(resolve, reject){
+                        await db.collection('users').findOne({'username': ret1.user}, function(err, ret3) {
+                            if (finalupvote == null) {
+                                if (upvote) { ret3.reputation += 1; }
+                                else { if (ret3.reputation > 1) { ret3.reputation -= 1; } }
+                            }
+                            else{
+                                if (finalupvote) { ret3.reputation += 1; }
+                                else { if (ret3.reputation > 1) { ret3.reputation -= 1; } }
+                            }
+                            db.collection('users').updateOne({ email: ret3.email }, { $set: { reputation: ret3.reputation } });
+                            resolve();
+                        })
+                    })
+                    upvotePromise.then(function(result){
+                        db.collection('questions').updateOne({ _id: id }, { $set: { score: result.score }});
+                        reputationPromise.then(function (result1){
+                            resolve({status: "OK"});
+                        })
+                    })
+                }
+            });
+        })
+    },
+    acceptAnswer: async function (req, res) {
+        return new Promise(async function(resolve, reject){
+            var answer_id = req.params.id;
+            var currentUser = req.params.user;
+            await db.collection('answers').findOne( {_id: answer_id}, function(err, ret){
+                if (!ret){
+                    res.status(404);
+                    resolve({status: "error", error: "Answer does not exist."});
+                }
+                else{
+                    var questionId = ret.questionId;
+                    var answerer = ret.user;
+                    var checkOPPromise = new Promise(async function (resolve, reject){
+                       await db.collection('questions').findOne( {_id: questionId}, function(err, ret1){
+                           if (!ret1){
+                               res.status(404);
+                               resolve({status: "error", error: "Question does not exist."});
+                           }
+                           else{
+                               if (ret1.user != currentUser){
+                                   res.status(403);
+                                   resolve({status: "error", error: "Cannot accept an answer if you are not the original poster"});
+                               }
+                               else if (ret1.accepted_answer_id != null){
+                                   res.status(403);
+                                   resolve({status:"error", error: "You have already accepted an answer for this question"});
+                               }
+                               else{
+                                   db.collection('questions').updateOne({ _id: questionId }, { $set: { accepted_answer_id: answer_id } });
+                                   db.collection('answers').updateOne({ _id: answer_id}, {$set: {is_accepted: true}});
+                                   resolve();
+                               }
+                           }
+                       })
+                    });
+                    var getAnswererPromise = new Promise(async function (resolve, reject){
+                        await db.collection('users').findOne({'username': answerer}, function (err, ret2){
+                            db.collection('users').updateOne({ email: ret2.email}, {$inc : {reputation: 1}});
+                            resolve({status:"OK"});
+                        })
+                    });
+                    checkOPPromise.then(function(result) {
+                        if (!result.status){
+                            getAnswererPromise.then(function(result1){
+                                resolve(result1);
+                            })
+                        }
+                        else{ resolve(result); }
+                    })
+                }
+            });
+        })
+    }
 }
