@@ -8,6 +8,7 @@
   "dependencies": {
     "amqplib": "^0.5.3",
     "bcryptjs": "^2.4.3",
+    "cassandra-driver": "^4.0.0",
     "consolidate": "^0.15.1",
     "cookie-parser": "^1.4.4",
     "ejs": "^2.6.1",
@@ -16,6 +17,7 @@
     "jquery": "^3.3.1",
     "mongoose": "^5.4.16",
     "morgan": "~1.9.0",
+    "multer": "^1.4.1",
     "nodemailer": "^5.1.1",
     "shortid": "^2.2.14"
   }
