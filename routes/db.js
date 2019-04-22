@@ -175,9 +175,6 @@ router.post('/questions/add', async function (req, res, next) {
             }
             //insert each unique word in the body, title, and tags into inverted index to search
             var text = v.title + " " + v.body;
-            for (var i = 0; i < v.tags.length; i++) {
-                text += " " + v.tags[i];
-            }
             text = text.toLowerCase().split(" ");
             text = new Set(text);
             text.forEach(function (word) {
@@ -191,6 +188,25 @@ router.post('/questions/add', async function (req, res, next) {
                     }
                 });
             });
+            //if (v.tags) {
+            //    var tags = v.tags[0];
+            //    for (var i = 1; i < v.tags.length; i++) {
+            //        tags += " " + v.tags[i];
+            //    }
+            //    tags = tags.toLowerCase().split(" ");
+            //    tags = new Set(tags);
+            //    tags.forEach(function (word) {
+            //        db.collection('tags').findOne({ 'word': word }, function (err, ret) {
+            //            if (ret) { //word has occurred before: update array
+            //                let newDocuments = ret.documents;
+            //                newDocuments.push(qid);
+            //                db.collection('tags').updateOne({ word: word }, { $set: { documents: newDocuments } });
+            //            } else { //word hasn't occured before; insert new document with new array
+            //                db.collection('tags').insertOne({ word: word, documents: [qid] });
+            //            }
+            //        });
+            //    });
+            //}
             db.collection('questions').insertOne(question, function () {
                 res.json({status: "OK", id: qid});
             });
@@ -244,6 +260,9 @@ router.post('/search', async function (req, res, next) {
     if (ret.constructor === Array) {
         res.json({status:"OK", questions:ret});
     } else {
+        if (ret.status = "error") {
+            res.status(400);
+        }
         res.json(ret);
     }
 
