@@ -39,6 +39,7 @@ app.use(expressWinston.logger({
         })
     ],
     format: winston.format.combine(
+        winston.format.timestamp(),
         winston.format.colorize(),
         winston.format.json()
     ),
