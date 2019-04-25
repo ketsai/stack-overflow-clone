@@ -168,59 +168,78 @@ router.post('/questions/add', async function (req, res, next) {
         }
         else {
             var media = null;
+            var mediafailure = false;
             if (v.media != undefined) {
                 media = v.media;
+                media.forEach(function(media_id){
+                    const query = 'SELECT * FROM stackoverflow.media WHERE id = ? ';
+                    client.execute(query, [media_id], function(err, result){
+                        if (err){
+                            res.status(404);
+                            mediafailure = true;
+                        }
+                        else{
+                            if (!result.rows[0]){
+                                mediafailure = true;
+                            }
+                            else {
+                                var uid = result.rows[0].uid;
+                                var qid = result.rows[0].qid;
+                                if (qid != null || uid !== user){
+                                    mediafailure = true;
+                                }
+                            }
+                        }
+                    });
+                })
             }
-            var qid = shortid.generate();
-            var question = {
-                _id: qid,
-                title: v.title,
-                body: v.body,
-                tags: v.tags,
-                media: media,
-                user: user,
-                score: 0,
-                viewers: [],
-                timestamp: Date.now() / 1000,
-                accepted_answer_id: null
+            if (mediafailure) {
+                res.status(404);
+                res.json({status: "error", error: "Media does not belong to current user or media is already in use"});
             }
-            //insert each unique word in the body, title, and tags into inverted index to search
-            var text = v.title + " " + v.body;
-            text = text.toLowerCase().split(" ");
-            text = new Set(text);
-            text.forEach(function (word) {
-                db.collection('index').findOne({ 'word': word }, function (err, ret) {
-                    if (ret) { //word has occurred before: update array
-                        let newDocuments = ret.documents;
-                        newDocuments.push(qid);
-                        db.collection('index').updateOne({ word: word }, { $set: { documents: newDocuments } });
-                    } else { //word hasn't occured before; insert new document with new array
-                        db.collection('index').insertOne({word: word, documents:[qid]});
-                    }
+            else {
+                var qid = shortid.generate();
+                var question = {
+                    _id: qid,
+                    title: v.title,
+                    body: v.body,
+                    tags: v.tags,
+                    media: media,
+                    user: user,
+                    score: 0,
+                    viewers: [],
+                    timestamp: Date.now() / 1000,
+                    accepted_answer_id: null
+                }
+                if (media != null){
+                    media.forEach(function(media_id){
+                        var query = "UPDATE stackoverflow.media SET uid = ? WHERE qid = ?"
+                        client.execute(query, [user, media_id], function (err, result){
+                            if (err){
+                                console.log("error in updating qid for media");
+                            }
+                        })
+                    });
+                }
+                //insert each unique word in the body, title, and tags into inverted index to search
+                var text = v.title + " " + v.body;
+                text = text.toLowerCase().split(" ");
+                text = new Set(text);
+                text.forEach(function (word) {
+                    db.collection('index').findOne({'word': word}, function (err, ret) {
+                        if (ret) { //word has occurred before: update array
+                            let newDocuments = ret.documents;
+                            newDocuments.push(qid);
+                            db.collection('index').updateOne({word: word}, {$set: {documents: newDocuments}});
+                        } else { //word hasn't occured before; insert new document with new array
+                            db.collection('index').insertOne({word: word, documents: [qid]});
+                        }
+                    });
                 });
-            });
-            //if (v.tags) {
-            //    var tags = v.tags[0];
-            //    for (var i = 1; i < v.tags.length; i++) {
-            //        tags += " " + v.tags[i];
-            //    }
-            //    tags = tags.toLowerCase().split(" ");
-            //    tags = new Set(tags);
-            //    tags.forEach(function (word) {
-            //        db.collection('tags').findOne({ 'word': word }, function (err, ret) {
-            //            if (ret) { //word has occurred before: update array
-            //                let newDocuments = ret.documents;
-            //                newDocuments.push(qid);
-            //                db.collection('tags').updateOne({ word: word }, { $set: { documents: newDocuments } });
-            //            } else { //word hasn't occured before; insert new document with new array
-            //                db.collection('tags').insertOne({ word: word, documents: [qid] });
-            //            }
-            //        });
-            //    });
-            //}
-            db.collection('questions').insertOne(question, function () {
-                res.json({status: "OK", id: qid});
-            });
+                db.collection('questions').insertOne(question, function () {
+                    res.json({status: "OK", id: qid});
+                });
+            }
         }
     }
     else {
@@ -369,22 +388,28 @@ router.post('/addmedia', upload.single('content'), async function (req, res){
     }
     else{
         console.log("user is logged in for add media operation");
-        req.params.user = userData.username;
+        var username = userData.username;
         var media_id = shortid.generate();
-        var query = "INSERT INTO stackoverflow.media(id, ext, content) VALUES (?,?,?)";
-        var originalname = req.file.originalname.split(".");
-        var extension = originalname.pop();
-        const values = [media_id, extension, req.file.buffer];
-        client.execute(query, values, function (err, result){
-            if (err){
-                console.log(err);
-                res.status(404);
-                res.json({status:"error", error:err});
-            }
-            else{
-                res.json({status: "OK", id: media_id});
-            }
-        });
+        var query = "INSERT INTO stackoverflow.media(id, ext, content, uid) VALUES (?,?,?,?)";
+        if (req.file == undefined){
+            res.status(403);
+            res.json({status:"error", "error": "No file was specified"});
+        }
+        else {
+            var originalname = req.file.originalname.split(".");
+            var extension = originalname.pop();
+            const values = [media_id, extension, req.file.buffer, username];
+            client.execute(query, values, function (err, result) {
+                if (err) {
+                    console.log(err);
+                    res.status(404);
+                    res.json({status: "error", error: err});
+                }
+                else {
+                    res.json({status: "OK", id: media_id});
+                }
+            });
+        }
     }
 })
 
