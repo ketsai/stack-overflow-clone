@@ -396,18 +396,19 @@ router.post('/addmedia', upload.single('content'), async function (req, res){
             res.json({status:"error", "error": "No file was specified"});
         }
         else {
+            res.json({status: "OK", id: media_id});
             var originalname = req.file.originalname.split(".");
             var extension = originalname.pop();
             const values = [media_id, extension, req.file.buffer, username];
             client.execute(query, values, function (err, result) {
-                if (err) {
-                    console.log(err);
-                    res.status(404);
-                    res.json({status: "error", error: err});
-                }
-                else {
-                    res.json({status: "OK", id: media_id});
-                }
+            //    if (err) {
+            //        console.log(err);
+            //        res.status(404);
+            //        res.json({status: "error", error: err});
+            //    }
+            //    else {
+            //        res.json({status: "OK", id: media_id});
+            //    }
             });
         }
     }
