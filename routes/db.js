@@ -59,24 +59,6 @@ router.post('/adduser', function (req, res, next) {
                             res.json({ status: "error", error: 'Please enter a valid email address.' });
                         } else {
                             //new session ID for new user
-                            res.on('finish', function(){
-                                var key = crypto.createHash('md5').update(v.email + "salty_salt").digest('hex'); //EMAIL THIS KEY TO EMAIL ADDRESS
-                                let mailOptions = {
-                                    from: '"root@cse356.cloud.compas.cs.stonybrook.edu', // sender address
-                                    to: user.email, // list of receivers
-                                    subject: "validation key", // Subject line
-                                    text: "validation key: <" + key + ">", // plain text body
-                                };
-                                transporter.sendMail(mailOptions);
-                                //automatically log in to new account
-                                db.collection('sessions').insertOne( // Insert new session into db
-                                    {
-                                        email: user.email,
-                                        session: session,
-                                        expire: Date.now() + 24 * 60 * 60 * 1000 // Session expires after 24 hours
-                                    }
-                                );
-                            });
                             var salt = bcrypt.genSaltSync(10); // Salt and hash the given password, then store it in the database
                             var hash = bcrypt.hashSync(v.password, salt);
                             var user = {
@@ -92,6 +74,25 @@ router.post('/adduser', function (req, res, next) {
                             var session = hash.digest('hex');
                             res.cookie('session', session);
                             res.json({ status: "OK", msg: 'Account created. Visit <a href="/verify">this link</a> to verify your email.' });
+
+                            var key = crypto.createHash('md5').update(v.email + "salty_salt").digest('hex'); //EMAIL THIS KEY TO EMAIL ADDRESS
+                            let mailOptions = {
+                                from: '"root@cse356.cloud.compas.cs.stonybrook.edu', // sender address
+                                to: user.email, // list of receivers
+                                subject: "validation key", // Subject line
+                                text: "validation key: <" + key + ">", // plain text body
+                            };
+                            transporter.sendMail(mailOptions);
+                            //automatically log in to new account
+                            db.collection('sessions').insertOne( // Insert new session into db
+                                {
+                                    email: user.email,
+                                    session: session,
+                                    expire: Date.now() + 24 * 60 * 60 * 1000 // Session expires after 24 hours
+                                }
+                            );
+
+
                         }
                     }
                 });
@@ -168,59 +169,77 @@ router.post('/questions/add', async function (req, res, next) {
         }
         else {
             var media = null;
+            var mediafailure = false;
             if (v.media != undefined) {
                 media = v.media;
+                media.forEach(function(media_id){
+                    const query = 'SELECT * FROM stackoverflow.media WHERE id = ? ';
+                    client.execute(query, [media_id], function(err, result){
+                        if (err){
+                            res.status(404);
+                            mediafailure = true;
+                        }
+                        else{
+                            if (!result.rows[0]){
+                                mediafailure = true;
+                            }
+                            else {
+                                var uid = result.rows[0].uid;
+                                var qid = result.rows[0].qid;
+                                if (qid != null || uid !== user){
+                                    mediafailure = true;
+                                }
+                            }
+                        }
+                    });
+                })
             }
-            var qid = shortid.generate();
-            var question = {
-                _id: qid,
-                title: v.title,
-                body: v.body,
-                tags: v.tags,
-                media: media,
-                user: user,
-                score: 0,
-                viewers: [],
-                timestamp: Date.now() / 1000,
-                accepted_answer_id: null
+            if (mediafailure) {
+                res.status(404);
+                res.json({status: "error", error: "Media does not belong to current user or media is already in use"});
             }
-            //insert each unique word in the body, title, and tags into inverted index to search
-            var text = v.title + " " + v.body;
-            text = text.toLowerCase().split(" ");
-            text = new Set(text);
-            text.forEach(function (word) {
-                db.collection('index').findOne({ 'word': word }, function (err, ret) {
-                    if (ret) { //word has occurred before: update array
-                        let newDocuments = ret.documents;
-                        newDocuments.push(qid);
-                        db.collection('index').updateOne({ word: word }, { $set: { documents: newDocuments } });
-                    } else { //word hasn't occured before; insert new document with new array
-                        db.collection('index').insertOne({word: word, documents:[qid]});
-                    }
-                });
-            });
-            //if (v.tags) {
-            //    var tags = v.tags[0];
-            //    for (var i = 1; i < v.tags.length; i++) {
-            //        tags += " " + v.tags[i];
-            //    }
-            //    tags = tags.toLowerCase().split(" ");
-            //    tags = new Set(tags);
-            //    tags.forEach(function (word) {
-            //        db.collection('tags').findOne({ 'word': word }, function (err, ret) {
-            //            if (ret) { //word has occurred before: update array
-            //                let newDocuments = ret.documents;
-            //                newDocuments.push(qid);
-            //                db.collection('tags').updateOne({ word: word }, { $set: { documents: newDocuments } });
-            //            } else { //word hasn't occured before; insert new document with new array
-            //                db.collection('tags').insertOne({ word: word, documents: [qid] });
-            //            }
-            //        });
-            //    });
-            //}
-            db.collection('questions').insertOne(question, function () {
+            else {
+                var qid = shortid.generate();
                 res.json({status: "OK", id: qid});
-            });
+                var question = {
+                    _id: qid,
+                    title: v.title,
+                    body: v.body,
+                    tags: v.tags,
+                    media: media,
+                    user: user,
+                    score: 0,
+                    viewers: [],
+                    timestamp: Date.now() / 1000,
+                    accepted_answer_id: null
+                }
+                if (media != null){
+                    media.forEach(function(media_id){
+                        var query = "UPDATE stackoverflow.media SET uid = ? WHERE qid = ?"
+                        client.execute(query, [user, media_id], function (err, result){
+                            if (err){
+                                console.log("error in updating qid for media");
+                            }
+                        })
+                    });
+                }
+                //insert each unique word in the body, title, and tags into inverted index to search
+                var text = v.title + " " + v.body;
+                text = text.toLowerCase().split(" ");
+                text = new Set(text);
+                text.forEach(function (word) {
+                    db.collection('index').findOne({'word': word}, function (err, ret) {
+                        if (ret) { //word has occurred before: update array
+                            let newDocuments = ret.documents;
+                            newDocuments.push(qid);
+                            db.collection('index').updateOne({word: word}, {$set: {documents: newDocuments}});
+                        } else { //word hasn't occured before; insert new document with new array
+                            db.collection('index').insertOne({word: word, documents: [qid]});
+                        }
+                    });
+                });
+                db.collection('questions').insertOne(question);
+            }
         }
     }
     else {
@@ -369,22 +388,29 @@ router.post('/addmedia', upload.single('content'), async function (req, res){
     }
     else{
         console.log("user is logged in for add media operation");
-        req.params.user = userData.username;
+        var username = userData.username;
         var media_id = shortid.generate();
-        var query = "INSERT INTO stackoverflow.media(id, ext, content) VALUES (?,?,?)";
-        var originalname = req.file.originalname.split(".");
-        var extension = originalname.pop();
-        const values = [media_id, extension, req.file.buffer];
-        client.execute(query, values, function (err, result){
-            if (err){
-                console.log(err);
-                res.status(404);
-                res.json({status:"error", error:err});
-            }
-            else{
-                res.json({status: "OK", id: media_id});
-            }
-        });
+        var query = "INSERT INTO stackoverflow.media(id, ext, content, uid) VALUES (?,?,?,?)";
+        if (req.file == undefined){
+            res.status(403);
+            res.json({status:"error", "error": "No file was specified"});
+        }
+        else {
+            res.json({status: "OK", id: media_id});
+            var originalname = req.file.originalname.split(".");
+            var extension = originalname.pop();
+            const values = [media_id, extension, req.file.buffer, username];
+            client.execute(query, values, function (err, result) {
+            //    if (err) {
+            //        console.log(err);
+            //        res.status(404);
+            //        res.json({status: "error", error: err});
+            //    }
+            //    else {
+            //        res.json({status: "OK", id: media_id});
+            //    }
+            });
+        }
     }
 })
 
