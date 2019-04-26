@@ -170,7 +170,7 @@ router.post('/questions/add', async function (req, res, next) {
         else {
             var media = null;
             var mediafailure = false;
-            if (v.media != undefined) {
+            if (v.media && v.media.constructor === Array) {
                 media = v.media;
                 media.forEach(function(media_id){
                     const query = 'SELECT * FROM stackoverflow.media WHERE id = ? ';
@@ -212,13 +212,14 @@ router.post('/questions/add', async function (req, res, next) {
                     timestamp: Date.now() / 1000,
                     accepted_answer_id: null
                 }
-                if (media != null){
+                if (media){
                     media.forEach(function(media_id){
                         var query = "UPDATE stackoverflow.media SET uid = ? WHERE qid = ?"
                         client.execute(query, [user, media_id], function (err, result){
                             if (err){
                                 res.status(400);
-                                res.json({ status: "error", error:"Error in updating qid for media"});
+                                res.json({ status: "error", error: "Error in updating qid for media" });
+                                res.end();
                             }
                         })
                     });
@@ -261,7 +262,7 @@ router.post('/questions/:id/answers/add', async function(req, res, next) {
         }
         else {
             var media = null;
-            if (v.media != undefined) {
+            if(v.media && v.media.constructor === Array) {
                 media = v.media;
             }
             var answer = {
