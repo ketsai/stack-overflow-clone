@@ -84,7 +84,7 @@ router.post('/adduser', function (req, res, next) {
                             };
                             transporter.sendMail(mailOptions);
                             //automatically log in to new account
-                            db.collection('sessions').insertOne( // Insert new session into db
+                            db.collection('sessions').insertOne( // Insert new session in00000000000000000000000000000000000000000000000000to db
                                 {
                                     email: user.email,
                                     session: session,
@@ -200,7 +200,6 @@ router.post('/questions/add', async function (req, res, next) {
             }
             else {
                 var qid = shortid.generate();
-                res.json({status: "OK", id: qid});
                 var question = {
                     _id: qid,
                     title: v.title,
@@ -218,11 +217,13 @@ router.post('/questions/add', async function (req, res, next) {
                         var query = "UPDATE stackoverflow.media SET uid = ? WHERE qid = ?"
                         client.execute(query, [user, media_id], function (err, result){
                             if (err){
-                                console.log("error in updating qid for media");
+                                res.status(400);
+                                res.json({ status: "error", error:"Error in updating qid for media"});
                             }
                         })
                     });
                 }
+                res.json({ status: "OK", id: qid });
                 //insert each unique word in the body, title, and tags into inverted index to search
                 var text = v.title + " " + v.body;
                 text = text.toLowerCase().split(" ");
