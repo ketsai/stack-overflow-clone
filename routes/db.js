@@ -71,7 +71,7 @@ router.post('/adduser', function (req, res, next) {
                                 //automatically log in to new account
                                 db.collection('sessions').insertOne( // Insert new session into db
                                     {
-                                        username: user.username,
+                                        email: user.email,
                                         session: session,
                                         expire: Date.now() + 24 * 60 * 60 * 1000 // Session expires after 24 hours
                                     }
@@ -128,10 +128,10 @@ router.post('/login', function (req, res, next) {
             var hash = crypto.createHash('sha256'); // Randomly generated session ID
             hash.update(Math.random().toString());
             var session = hash.digest('hex');
-            db.collection('sessions').deleteMany({ username: v.username }, function () { // Clear all other existing sessions for this user
+            db.collection('sessions').deleteMany({ email: ret.email }, function () { // Clear all other existing sessions for this user
                 db.collection('sessions').insertOne( // New session
                     {
-                        username: v.username,
+                        email: v.email,
                         session: session,
                         expire: Date.now() + 24 * 60 * 60 * 1000 // Session expires after 24 hours
                     }, function () {

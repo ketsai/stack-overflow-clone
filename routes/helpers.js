@@ -103,9 +103,8 @@ module.exports = {
                             res.clearCookie('session');
                             resolve();
                         }
-                        db.collection('users').findOne({ 'username': ret.username }, function (err, ret) {
+                        db.collection('users').findOne({ 'email': ret.email }, function (err, ret) {
                             if (ret) { // User found
-                                console.log("User: " + ret.username);
                                 resolve(ret);
                             }
                         });
