@@ -161,13 +161,11 @@ router.post('/questions/add', async function (req, res, next) {
     let userData = await helper.getUserData(req, res);
     if (userData) {
         var user = userData.username;
-
         var v = req.body;
         if (v.title == null || v.body == null || v.tags == null) {
             res.status(400);
             res.json({status: "error", error: 'All fields are required; please enter all information.'});
-        }
-        else {
+        } else {
             var media = null;
             var mediafailure = false;
             if (v.media && v.media.constructor === Array) {
@@ -197,8 +195,7 @@ router.post('/questions/add', async function (req, res, next) {
             if (mediafailure) {
                 res.status(404);
                 res.json({status: "error", error: "Media does not belong to current user or media is already in use"});
-            }
-            else {
+            } else {
                 var qid = shortid.generate();
                 var question = {
                     _id: qid,
@@ -224,7 +221,6 @@ router.post('/questions/add', async function (req, res, next) {
                         })
                     });
                 }
-                res.json({ status: "OK", id: qid });
                 //insert each unique word in the body, title, and tags into inverted index to search
                 var text = v.title + " " + v.body;
                 text = text.toLowerCase().split(" ");
@@ -241,6 +237,7 @@ router.post('/questions/add', async function (req, res, next) {
                     });
                 });
                 db.collection('questions').insertOne(question);
+                res.json({ status: "OK", id: qid });
             }
         }
     }
@@ -393,7 +390,7 @@ router.post('/addmedia', upload.single('content'), async function (req, res){
         var username = userData.username;
         var media_id = shortid.generate();
         var query = "INSERT INTO stackoverflow.media(id, ext, content, uid) VALUES (?,?,?,?)";
-        if (req.file == undefined){
+        if (!req.file){
             res.status(403);
             res.json({status:"error", "error": "No file was specified"});
         }
