@@ -350,7 +350,7 @@ module.exports = {
                         });
                     }
                     else {
-                        resolve({status: 403});
+                        resolve({status: 401});
                     }
                 }
             });
@@ -494,11 +494,11 @@ module.exports = {
                            }
                            else{
                                if (ret1.user != currentUser){
-                                   res.status(403);
+                                   res.status(401);
                                    resolve({status: "error", error: "Cannot accept an answer if you are not the original poster"});
                                }
                                else if (ret1.accepted_answer_id != null){
-                                   res.status(403);
+                                   res.status(401);
                                    resolve({status:"error", error: "You have already accepted an answer for this question"});
                                }
                                else{

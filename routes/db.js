@@ -111,7 +111,7 @@ router.post('/verify', function (req, res, next) {
             db.collection('users').updateOne({ 'email': v.email }, { $set: { verified: true }});
             res.json({ status: "OK", msg: 'Your account is now verified!' });
         } else {
-            res.status(403);
+            res.status(400);
             res.json({ status: "error", error: 'Invalid verification key' });
         }
     })
@@ -123,7 +123,7 @@ router.post('/login', function (req, res, next) {
     db.collection('users').findOne({ 'username': v.username }, function (err, ret) {
         if (err) return handleError(res,err);
         if (ret != null && !ret.verified) {
-            res.status(403);
+            res.status(401);
             res.json({ status: "error", error: 'Please verify your account.' });
         }else if (ret != null && bcrypt.compareSync(v.password, ret.password)) { // Ensure that the given password matches the hashed password
             var hash = crypto.createHash('sha256'); // Randomly generated session ID
@@ -142,7 +142,7 @@ router.post('/login', function (req, res, next) {
                 );
             });
         } else {
-            res.status(403);
+            res.status(401);
             res.json({ status: "error", error: 'Invalid login credentials' });
         }
     })
@@ -327,7 +327,7 @@ router.delete('/questions/:id', async function (req, res){
     let userData = await helper.getUserData(req, res);
     if (!userData){
         console.log("userData is undefined");
-        res.status(403);
+        res.status(401);
         res.json({status: "error", error: "User not found"});
     }
     else{
@@ -353,7 +353,7 @@ router.post('/questions/:id/upvote', async function (req, res) {
    let userData = await helper.getUserData(req, res);
    if (!userData){
        console.log("userData is undefined in upvote question");
-       res.status(403);
+       res.status(401);
        res.json({status:"error", error: "User must be logged in to upvote"});
    }
    else{
@@ -369,7 +369,7 @@ router.post('/answers/:id/upvote', async function (req, res) {
     let userData = await helper.getUserData(req, res);
     if (!userData){
         console.log("userData is undefined in upvote answer");
-        res.status(403);
+        res.status(401);
         res.json({status:"error", error: "User must be logged in to upvote"});
     }
     else{
@@ -385,7 +385,7 @@ router.post('/answers/:id/accept', async function (req, res) {
     let userData = await helper.getUserData(req, res);
     if (!userData){
         console.log("userData is undefined in accept answer");
-        res.status(403);
+        res.status(401);
         res.json({status:"error", error: "User must be logged in to accept an answer"});
     }
     else{
@@ -400,7 +400,7 @@ router.post('/addmedia', upload.single('content'), async function (req, res){
     let userData = await helper.getUserData(req, res);
     if (!userData){
         console.log("userData is undefined in add media");
-        res.status(403);
+        res.status(401);
         res.json({status:"error", error: "User must be logged in to add media"});
     }
     else{
@@ -409,7 +409,7 @@ router.post('/addmedia', upload.single('content'), async function (req, res){
         var media_id = shortid.generate();
         var query = "INSERT INTO stackoverflow.media(id, ext, content, uid) VALUES (?,?,?,?)";
         if (!req.file){
-            res.status(403);
+            res.status(400);
             res.json({status:"error", "error": "No file was specified"});
         }
         else {
