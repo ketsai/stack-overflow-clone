@@ -94,18 +94,20 @@ module.exports = {
         return new Promise(function (resolve, reject) { // Create promise for retrieving user data
             var session = req.cookies.session;
             if (session) {
-                db.collection('sessions').findOne({ 'session': session }, function (err, ret) {
+                db.collection('sessions').findOne({ 'session': session }, function (err, ses) {
                     if (err) return handleError(err);
-                    if (ret) {
-                        if (ret.expire < Date.now()) { // Session expired, remove from db
+                    if (ses) {
+                        if (ses.expire < Date.now()) { // Session expired, remove from db
                             console.log("Removing expired session.");
                             db.collection('sessions').deleteOne({ 'session': session });
                             res.clearCookie('session');
                             resolve();
                         }
-                        db.collection('users').findOne({ 'email': ret.email }, function (err, ret) {
+                        db.collection('users').findOne({ 'email': ses.email }, function (err, ret) {
                             if (ret) { // User found
                                 resolve(ret);
+                            } else {
+                                resolve();
                             }
                         });
                     } else { // Session not found

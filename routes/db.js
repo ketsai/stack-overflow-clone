@@ -164,27 +164,27 @@ router.post('/questions/add', async function (req, res, next) {
         var v = req.body;
         if (v.title == null || v.body == null || v.tags == null) {
             res.status(400);
-            res.json({status: "error", error: 'All fields are required; please enter all information.'});
+            res.json({ status: "error", error: 'All fields are required; please enter all information.' });
         } else {
             var media = null;
             var mediafailure = false;
             if (v.media && v.media.constructor === Array) {
                 media = v.media;
-                media.forEach(function(media_id){
+                media.forEach(function (media_id) {
                     const query = 'SELECT * FROM stackoverflow.media WHERE id = ? ';
-                    client.execute(query, [media_id], function(err, result){
-                        if (err){
+                    client.execute(query, [media_id], function (err, result) {
+                        if (err) {
                             res.status(404);
                             mediafailure = true;
                         }
-                        else{
-                            if (!result.rows[0]){
+                        else {
+                            if (!result.rows[0]) {
                                 mediafailure = true;
                             }
                             else {
                                 var uid = result.rows[0].uid;
                                 var qid = result.rows[0].qid;
-                                if (qid != null || uid !== user){
+                                if (qid != null || uid !== user) {
                                     mediafailure = true;
                                 }
                             }
@@ -194,7 +194,7 @@ router.post('/questions/add', async function (req, res, next) {
             }
             if (mediafailure) {
                 res.status(404);
-                res.json({status: "error", error: "Media does not belong to current user or media is already in use"});
+                res.json({ status: "error", error: "Media does not belong to current user or media is already in use" });
             } else {
                 var qid = shortid.generate();
                 var question = {
@@ -209,11 +209,11 @@ router.post('/questions/add', async function (req, res, next) {
                     timestamp: Date.now() / 1000,
                     accepted_answer_id: null
                 }
-                if (media){
-                    media.forEach(function(media_id){
+                if (media) {
+                    media.forEach(function (media_id) {
                         var query = "UPDATE stackoverflow.media SET uid = ? WHERE qid = ?"
-                        client.execute(query, [user, media_id], function (err, result){
-                            if (err){
+                        client.execute(query, [user, media_id], function (err, result) {
+                            if (err) {
                                 res.status(400);
                                 res.json({ status: "error", error: "Error in updating qid for media" });
                                 res.end();
@@ -225,17 +225,35 @@ router.post('/questions/add', async function (req, res, next) {
                 var text = v.title + " " + v.body;
                 text = text.toLowerCase().split(" ");
                 text = new Set(text);
+                var ops = new Array();
                 text.forEach(function (word) {
-                    db.collection('index').findOne({'word': word}, function (err, ret) {
-                        if (ret) { //word has occurred before: update array
-                            let newDocuments = ret.documents;
-                            newDocuments.push(qid);
-                            db.collection('index').updateOne({word: word}, {$set: {documents: newDocuments}});
-                        } else { //word hasn't occured before; insert new document with new array
-                            db.collection('index').insertOne({word: word, documents: [qid]});
+                    ops.push(
+                        {
+                            updateOne: {
+                                "filter": { word: word },
+                                "update": { $addToSet: { documents: qid } },
+                                "upsert": true
+                            }
                         }
-                    });
+                    );
                 });
+                //console.log(ops);
+                db.collection('index').bulkWrite(ops);
+                
+                //db.collection('index').update({ word: word }, { $set: { documents: newDocuments }, { upsert: true }});
+
+                //text = new Set(text);
+                //text.forEach(function (word) {
+                //    db.collection('index').findOne({'word': word}, function (err, ret) {
+                //        if (ret) { //word has occurred before: update array
+                //            let newDocuments = ret.documents;
+                //            newDocuments.push(qid);
+                //            db.collection('index').updateOne({word: word}, {$set: {documents: newDocuments}});
+                //        } else { //word hasn't occured before; insert new document with new array
+                //            db.collection('index').insertOne({word: word, documents: [qid]});
+                //        }
+                //    });
+                //});
                 db.collection('questions').insertOne(question);
                 res.json({ status: "OK", id: qid });
             }
