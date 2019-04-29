@@ -84,7 +84,7 @@ router.post('/adduser', function (req, res, next) {
                             };
                             transporter.sendMail(mailOptions);
                             //automatically log in to new account
-                            db.collection('sessions').insertOne( // Insert new session in00000000000000000000000000000000000000000000000000to db
+                            db.collection('sessions').insertOne( // Insert new session into db
                                 {
                                     email: user.email,
                                     session: session,
@@ -132,7 +132,7 @@ router.post('/login', function (req, res, next) {
             db.collection('sessions').deleteMany({ email: ret.email }, function () { // Clear all other existing sessions for this user
                 db.collection('sessions').insertOne( // New session
                     {
-                        email: v.email,
+                        email: ret.email,
                         session: session,
                         expire: Date.now() + 24 * 60 * 60 * 1000 // Session expires after 24 hours
                     }, function () {
