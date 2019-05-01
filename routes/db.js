@@ -209,12 +209,13 @@ router.post('/questions/add', async function (req, res, next) {
                     timestamp: Date.now() / 1000,
                     accepted_answer_id: null
                 }
+                var failedToUpdateMedia = false;
                 if (media) {
                     media.forEach(function (media_id) {
                         var query = "UPDATE stackoverflow.media SET uid = ? WHERE qid = ?"
                         client.execute(query, [user, media_id], function (err, result) {
                             if (err) {
-                                var failedToUpdateMedia = true;
+                                failedToUpdateMedia = true;
                             }
                         })
                     });
