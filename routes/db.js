@@ -171,7 +171,7 @@ router.post('/questions/add', async function (req, res, next) {
             if (v.media && v.media.constructor === Array) {
                 media = v.media;
                 media.forEach(function (media_id) {
-                    const query = 'SELECT * FROM stackoverflow.media WHERE id = ? ';
+                    const query = 'SELECT uid, qid FROM stackoverflow.media WHERE id = ? ';
                     client.execute(query, [media_id], function (err, result) {
                         if (err) {
                             res.status(404);
