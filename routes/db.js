@@ -212,8 +212,8 @@ router.post('/questions/add', async function (req, res, next) {
                 var failedToUpdateMedia = false;
                 if (media) {
                     media.forEach(function (media_id) {
-                        var query = "UPDATE stackoverflow.media SET uid = ? WHERE qid = ?"
-                        client.execute(query, [user, media_id], function (err, result) {
+                        var query = "UPDATE stackoverflow.media SET qid = ? WHERE id = ?"
+                        client.execute(query, [qid, media_id], function (err, result) {
                             if (err) {
                                 failedToUpdateMedia = true;
                             }
