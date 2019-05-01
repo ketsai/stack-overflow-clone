@@ -214,48 +214,36 @@ router.post('/questions/add', async function (req, res, next) {
                         var query = "UPDATE stackoverflow.media SET uid = ? WHERE qid = ?"
                         client.execute(query, [user, media_id], function (err, result) {
                             if (err) {
-                                res.status(400);
-                                res.json({ status: "error", error: "Error in updating qid for media" });
-                                res.end();
+                                var failedToUpdateMedia = true;
                             }
                         })
                     });
                 }
-                //insert each unique word in the body, title, and tags into inverted index to search
-                var text = v.title + " " + v.body;
-                text = text.toLowerCase().split(" ");
-                text = new Set(text);
-                var ops = new Array();
-                text.forEach(function (word) {
-                    ops.push(
-                        {
-                            updateOne: {
-                                "filter": { word: word },
-                                "update": { $addToSet: { documents: qid } },
-                                "upsert": true
+                if (failedToUpdateMedia) {
+                    res.status(400);
+                    res.json({ status: "error", error: "Error in updating qid for media" });
+                } else {
+                    //insert each unique word in the body, title, and tags into inverted index to search
+                    var text = v.title + " " + v.body;
+                    text = text.toLowerCase().split(" ");
+                    text = new Set(text);
+                    var ops = new Array();
+                    text.forEach(function (word) {
+                        ops.push(
+                            {
+                                updateOne: {
+                                    "filter": { word: word },
+                                    "update": { $addToSet: { documents: qid } },
+                                    "upsert": true
+                                }
                             }
-                        }
-                    );
-                });
-                //console.log(ops);
-                db.collection('index').bulkWrite(ops);
-                
-                //db.collection('index').update({ word: word }, { $set: { documents: newDocuments }, { upsert: true }});
-
-                //text = new Set(text);
-                //text.forEach(function (word) {
-                //    db.collection('index').findOne({'word': word}, function (err, ret) {
-                //        if (ret) { //word has occurred before: update array
-                //            let newDocuments = ret.documents;
-                //            newDocuments.push(qid);
-                //            db.collection('index').updateOne({word: word}, {$set: {documents: newDocuments}});
-                //        } else { //word hasn't occured before; insert new document with new array
-                //            db.collection('index').insertOne({word: word, documents: [qid]});
-                //        }
-                //    });
-                //});
-                db.collection('questions').insertOne(question);
-                res.json({ status: "OK", id: qid });
+                        );
+                    });
+                    //console.log(ops);
+                    db.collection('index').bulkWrite(ops);
+                    db.collection('questions').insertOne(question);
+                    res.json({ status: "OK", id: qid });
+                }
             }
         }
     }
