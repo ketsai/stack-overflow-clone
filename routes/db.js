@@ -203,47 +203,31 @@ router.post('/questions/add', async function (req, res, next) {
                     timestamp: Date.now() / 1000,
                     accepted_answer_id: null
                 }
-                //var failedToUpdateMedia = false;
                 if (media) {
                     var query = "UPDATE stackoverflow.media SET qid = ? WHERE id IN ?";
                     client.execute(query, [qid, media], function (err, result){
                         console.log(err);
                     });
-/*                    media.forEach(function (media_id) {
-                        var query = "UPDATE stackoverflow.media SET qid = ? WHERE id = ?"
-                        client.execute(query, [qid, media_id], function (err, result) {
-                            if (err) {
-                                failedToUpdateMedia = true;
-                            }
-                        })
-                    });*/
                 }
-/*                if (failedToUpdateMedia) {
-                    res.status(400);
-                    res.json({ status: "error", error: "Error in updating qid for media" });
-                }*/
-                //else {
-                    res.json({ status: "OK", id: qid });
-                    //insert each unique word in the body, title, and tags into inverted index to search
-                    var text = v.title + " " + v.body;
-                    text = text.toLowerCase().split(" ");
-                    text = new Set(text);
-                    var ops = new Array();
-                    text.forEach(function (word) {
-                        ops.push(
-                            {
-                                updateOne: {
-                                    "filter": { word: word },
-                                    "update": { $addToSet: { documents: qid } },
-                                    "upsert": true
-                                }
+                res.json({ status: "OK", id: qid });
+                //insert each unique word in the body, title, and tags into inverted index to search
+                var text = v.title + " " + v.body;
+                text = text.toLowerCase().split(" ");
+                text = new Set(text);
+                var ops = new Array();
+                text.forEach(function (word) {
+                    ops.push(
+                        {
+                            updateOne: {
+                                "filter": { word: word },
+                                "update": { $addToSet: { documents: qid } },
+                                "upsert": true
                             }
-                        );
-                    });
-                    //console.log(ops);
-                    db.collection('index').bulkWrite(ops);
-                    db.collection('questions').insertOne(question);
-                //}
+                        }
+                    );
+                });
+                db.collection('index').bulkWrite(ops);
+                db.collection('questions').insertOne(question);
             }
         }
     }
@@ -256,6 +240,7 @@ router.post('/questions/add', async function (req, res, next) {
 router.post('/questions/:id/answers/add', async function(req, res, next) {
     var aid = shortid.generate();
     let userData = await helper.getUserData(req, res);
+    var user = userData.username;
     if (userData) {
         var qid = req.params.id;
         var v = req.body;
@@ -273,8 +258,9 @@ router.post('/questions/:id/answers/add', async function(req, res, next) {
                 var media = null;
                 var mediafailure = false;
                 if (v.media && v.media.constructor === Array) {
+                    console.log("There is media associated with this addAnswer")
                     media = v.media;
-                    const query = 'SELECT uid, qid FROM stackoverflow.media WHERE id IN ? ';
+                    const query = 'SELECT uid, qid FROM stackoverflow.media WHERE id IN ?';
                     var result = await client.execute(query, [media]);
                     if (!result || result.rows.length < media.length) {
                         mediafailure = true;
@@ -291,10 +277,7 @@ router.post('/questions/:id/answers/add', async function(req, res, next) {
                 }
                 if (mediafailure) {
                     res.status(404);
-                    res.json({
-                        status: "error",
-                        error: "Media does not belong to current user or media is already in use"
-                    });
+                    res.json({ status: "error", error: "Media does not belong to current user or media is already in use" });
                 } else {
                     res.json({status: "OK", id: aid});
                     var answer = {
@@ -309,8 +292,7 @@ router.post('/questions/:id/answers/add', async function(req, res, next) {
                     }
                     if (media) {
                         var query = "UPDATE stackoverflow.media SET qid = ? WHERE id IN ?";
-                        client.execute(query, [aid, media], function (err, result) {
-                        })
+                        client.execute(query, [aid, media]);
                     }
                     db.collection('answers').insertOne(answer);
                 }

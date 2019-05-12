@@ -36,6 +36,9 @@ app.use(expressWinston.logger({
             maxsize: 5242880, // 5MB
             maxFiles: 10,
             colorize: false,
+        }),
+        new winston.transports.Console({
+            level: 'error'
         })
     ],
     format: winston.format.combine(
