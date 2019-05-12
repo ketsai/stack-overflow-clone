@@ -224,6 +224,19 @@ module.exports = {
             });
         });
     },
+    checkExisting: async function (req, res) {
+        return new Promise(async function (resolve, reject) {
+            var qid = req.params.id;
+            await db.collection('questions').findOne({'_id': qid}, function (err, ret1) {
+                if (ret1) {
+                    resolve(true);
+                }
+                else {
+                    resolve(false);
+                }
+            });
+        });
+    },
     getAnswers: async function (req, res) {
         return new Promise(async function (resolve, reject) {
             var ret = [];

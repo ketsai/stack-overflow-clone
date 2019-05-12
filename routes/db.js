@@ -203,22 +203,26 @@ router.post('/questions/add', async function (req, res, next) {
                     timestamp: Date.now() / 1000,
                     accepted_answer_id: null
                 }
-                var failedToUpdateMedia = false;
+                //var failedToUpdateMedia = false;
                 if (media) {
-                    media.forEach(function (media_id) {
+                    var query = "UPDATE stackoverflow.media SET qid = ? WHERE id IN ?";
+                    client.execute(query, [qid, media], function (err, result){
+                        console.log(err);
+                    });
+/*                    media.forEach(function (media_id) {
                         var query = "UPDATE stackoverflow.media SET qid = ? WHERE id = ?"
                         client.execute(query, [qid, media_id], function (err, result) {
                             if (err) {
                                 failedToUpdateMedia = true;
                             }
                         })
-                    });
+                    });*/
                 }
-                if (failedToUpdateMedia) {
+/*                if (failedToUpdateMedia) {
                     res.status(400);
                     res.json({ status: "error", error: "Error in updating qid for media" });
-                }
-                else {
+                }*/
+                //else {
                     res.json({ status: "OK", id: qid });
                     //insert each unique word in the body, title, and tags into inverted index to search
                     var text = v.title + " " + v.body;
@@ -239,7 +243,7 @@ router.post('/questions/add', async function (req, res, next) {
                     //console.log(ops);
                     db.collection('index').bulkWrite(ops);
                     db.collection('questions').insertOne(question);
-                }
+                //}
             }
         }
     }
@@ -260,53 +264,56 @@ router.post('/questions/:id/answers/add', async function(req, res, next) {
             res.json({status: "error", error: 'You must fill in an answer'});
         }
         else {
-            var media = null;
-            var mediafailure = false;
-            if (v.media && v.media.constructor === Array) {
-                media = v.media;
-                const query = 'SELECT uid, qid FROM stackoverflow.media WHERE id IN ? ';
-                var result = await client.execute(query, [media]);
-                if (!result || result.rows.length < media.length){
-                    res.status(404);
-                    mediafailure = true;
-                }
-                else{
-                    result.rows.forEach(function(row) {
-                        var uid = row.uid;
-                        var qid = row.qid;
-                        if (qid != null || uid !== user) {
-                            mediafailure = true;
-                        }
-                    })
-                }
+            var question = await helper.checkExisting(req, res);
+            if (!question) {
+                res.status(403);
+                res.json({ status: "error", error: "The question does not exist"});
             }
-            if (mediafailure) {
-                res.status(404);
-                res.json({ status: "error", error: "Media does not belong to current user or media is already in use" });
-            } else {
-                var answer = {
-                    _id: aid,
-                    questionId: qid,
-                    user: userData.username,
-                    body: req.body.body,
-                    score: 0,
-                    is_accepted: false,
-                    timestamp: Date.now() / 1000,
-                    media: media
-                }
-                if (media) {
-                    media.forEach(function (media_id) {
-                        var query = "UPDATE stackoverflow.media SET qid = ? WHERE id = ?"
-                        client.execute(query, [qid, media_id], function (err, result) {
-                            if (err) {
-                                console.log(err);
+            else {
+                var media = null;
+                var mediafailure = false;
+                if (v.media && v.media.constructor === Array) {
+                    media = v.media;
+                    const query = 'SELECT uid, qid FROM stackoverflow.media WHERE id IN ? ';
+                    var result = await client.execute(query, [media]);
+                    if (!result || result.rows.length < media.length) {
+                        mediafailure = true;
+                    }
+                    else {
+                        result.rows.forEach(function (row) {
+                            var uid = row.uid;
+                            var qid = row.qid;
+                            if (qid != null || uid !== user) {
+                                mediafailure = true;
                             }
                         })
-                    });
+                    }
                 }
-                db.collection('answers').insertOne(answer, function () {
+                if (mediafailure) {
+                    res.status(404);
+                    res.json({
+                        status: "error",
+                        error: "Media does not belong to current user or media is already in use"
+                    });
+                } else {
                     res.json({status: "OK", id: aid});
-                });
+                    var answer = {
+                        _id: aid,
+                        questionId: qid,
+                        user: userData.username,
+                        body: req.body.body,
+                        score: 0,
+                        is_accepted: false,
+                        timestamp: Date.now() / 1000,
+                        media: media
+                    }
+                    if (media) {
+                        var query = "UPDATE stackoverflow.media SET qid = ? WHERE id IN ?";
+                        client.execute(query, [aid, media], function (err, result) {
+                        })
+                    }
+                    db.collection('answers').insertOne(answer);
+                }
             }
         }
     }
