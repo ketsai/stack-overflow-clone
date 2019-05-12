@@ -334,17 +334,23 @@ module.exports = {
                                     resolve({status: "error"});
                                 }
                                 else {
-                                    resolve({status: "OK", media: ret1.media});
+                                    resolve({status: "OK", ids: qid});
                                 }
                             });
                         });
                         var deleteAnswersPromise = new Promise(async function (resolve, reject) {
-                            await db.collection('answers').remove({'questionId': qid}, function (err, ret2) {
-                                resolve(ret2);
-                            })
+                            var answer_ids = []
+                            await db.collection('answers').find({'questionId': qid}, function(err, ret2){
+                                ret2.forEach(function(row){
+                                    answer_ids.push(row._id);
+                                })
+                            });
+                            await db.collection('answers').remove({'questionId': qid});
+                            resolve(answer_ids);
                         })
                         deletePromise.then(function (result) {
                             deleteAnswersPromise.then(function (result2) {
+                                result.ids.concat(result2);
                                 resolve(result);
                             })
                         });
