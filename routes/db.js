@@ -203,22 +203,26 @@ router.post('/questions/add', async function (req, res, next) {
                     timestamp: Date.now() / 1000,
                     accepted_answer_id: null
                 }
-                var failedToUpdateMedia = false;
+                //var failedToUpdateMedia = false;
                 if (media) {
-                    media.forEach(function (media_id) {
+                    var query = "UPDATE stackoverflow.media SET qid = ? WHERE id IN ?";
+                    client.execute(query, [qid, media], function (err, result){
+                        console.log(err);
+                    });
+/*                    media.forEach(function (media_id) {
                         var query = "UPDATE stackoverflow.media SET qid = ? WHERE id = ?"
                         client.execute(query, [qid, media_id], function (err, result) {
                             if (err) {
                                 failedToUpdateMedia = true;
                             }
                         })
-                    });
+                    });*/
                 }
-                if (failedToUpdateMedia) {
+/*                if (failedToUpdateMedia) {
                     res.status(400);
                     res.json({ status: "error", error: "Error in updating qid for media" });
-                }
-                else {
+                }*/
+                //else {
                     res.json({ status: "OK", id: qid });
                     //insert each unique word in the body, title, and tags into inverted index to search
                     var text = v.title + " " + v.body;
@@ -239,7 +243,7 @@ router.post('/questions/add', async function (req, res, next) {
                     //console.log(ops);
                     db.collection('index').bulkWrite(ops);
                     db.collection('questions').insertOne(question);
-                }
+                //}
             }
         }
     }
@@ -295,14 +299,18 @@ router.post('/questions/:id/answers/add', async function(req, res, next) {
                     media: media
                 }
                 if (media) {
-                    media.forEach(function (media_id) {
+                    var query = "UPDATE stackoverflow.media SET qid = ? WHERE id IN ?";
+                    client.execute(query, [qid, media], function (err, result){
+                        console.log(err);
+                    })
+                    /*media.forEach(function (media_id) {
                         var query = "UPDATE stackoverflow.media SET qid = ? WHERE id = ?"
                         client.execute(query, [qid, media_id], function (err, result) {
                             if (err) {
                                 console.log(err);
                             }
                         })
-                    });
+                    });*/
                 }
                 db.collection('answers').insertOne(answer, function () {
                     res.json({status: "OK", id: aid});
