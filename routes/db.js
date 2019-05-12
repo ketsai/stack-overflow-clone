@@ -296,6 +296,7 @@ router.post('/questions/:id/answers/add', async function(req, res, next) {
                         error: "Media does not belong to current user or media is already in use"
                     });
                 } else {
+                    res.json({status: "OK", id: aid});
                     var answer = {
                         _id: aid,
                         questionId: qid,
@@ -309,12 +310,9 @@ router.post('/questions/:id/answers/add', async function(req, res, next) {
                     if (media) {
                         var query = "UPDATE stackoverflow.media SET qid = ? WHERE id IN ?";
                         client.execute(query, [aid, media], function (err, result) {
-                            console.log(err);
                         })
                     }
-                    db.collection('answers').insertOne(answer, function () {
-                        res.json({status: "OK", id: aid});
-                    });
+                    db.collection('answers').insertOne(answer);
                 }
             }
         }
