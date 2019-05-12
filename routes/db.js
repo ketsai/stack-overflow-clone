@@ -294,6 +294,16 @@ router.post('/questions/:id/answers/add', async function(req, res, next) {
                     timestamp: Date.now() / 1000,
                     media: media
                 }
+                if (media) {
+                    media.forEach(function (media_id) {
+                        var query = "UPDATE stackoverflow.media SET qid = ? WHERE id = ?"
+                        client.execute(query, [qid, media_id], function (err, result) {
+                            if (err) {
+                                console.log(err);
+                            }
+                        })
+                    });
+                }
                 db.collection('answers').insertOne(answer, function () {
                     res.json({status: "OK", id: aid});
                 });
