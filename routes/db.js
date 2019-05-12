@@ -264,57 +264,58 @@ router.post('/questions/:id/answers/add', async function(req, res, next) {
             res.json({status: "error", error: 'You must fill in an answer'});
         }
         else {
-            var media = null;
-            var mediafailure = false;
-            if (v.media && v.media.constructor === Array) {
-                media = v.media;
-                const query = 'SELECT uid, qid FROM stackoverflow.media WHERE id IN ? ';
-                var result = await client.execute(query, [media]);
-                if (!result || result.rows.length < media.length){
-                    res.status(404);
-                    mediafailure = true;
-                }
-                else{
-                    result.rows.forEach(function(row) {
-                        var uid = row.uid;
-                        var qid = row.qid;
-                        if (qid != null || uid !== user) {
-                            mediafailure = true;
-                        }
-                    })
-                }
+            var question = await helper.checkExisting(req, res);
+            if (!question) {
+                res.status(403);
+                res.json({ status: "error", error: "The question does not exist"});
             }
-            if (mediafailure) {
-                res.status(404);
-                res.json({ status: "error", error: "Media does not belong to current user or media is already in use" });
-            } else {
-                var answer = {
-                    _id: aid,
-                    questionId: qid,
-                    user: userData.username,
-                    body: req.body.body,
-                    score: 0,
-                    is_accepted: false,
-                    timestamp: Date.now() / 1000,
-                    media: media
-                }
-                if (media) {
-                    var query = "UPDATE stackoverflow.media SET qid = ? WHERE id IN ?";
-                    client.execute(query, [qid, media], function (err, result){
-                        console.log(err);
-                    })
-                    /*media.forEach(function (media_id) {
-                        var query = "UPDATE stackoverflow.media SET qid = ? WHERE id = ?"
-                        client.execute(query, [qid, media_id], function (err, result) {
-                            if (err) {
-                                console.log(err);
+            else {
+                var media = null;
+                var mediafailure = false;
+                if (v.media && v.media.constructor === Array) {
+                    media = v.media;
+                    const query = 'SELECT uid, qid FROM stackoverflow.media WHERE id IN ? ';
+                    var result = await client.execute(query, [media]);
+                    if (!result || result.rows.length < media.length) {
+                        mediafailure = true;
+                    }
+                    else {
+                        result.rows.forEach(function (row) {
+                            var uid = row.uid;
+                            var qid = row.qid;
+                            if (qid != null || uid !== user) {
+                                mediafailure = true;
                             }
                         })
-                    });*/
+                    }
                 }
-                db.collection('answers').insertOne(answer, function () {
-                    res.json({status: "OK", id: aid});
-                });
+                if (mediafailure) {
+                    res.status(404);
+                    res.json({
+                        status: "error",
+                        error: "Media does not belong to current user or media is already in use"
+                    });
+                } else {
+                    var answer = {
+                        _id: aid,
+                        questionId: qid,
+                        user: userData.username,
+                        body: req.body.body,
+                        score: 0,
+                        is_accepted: false,
+                        timestamp: Date.now() / 1000,
+                        media: media
+                    }
+                    if (media) {
+                        var query = "UPDATE stackoverflow.media SET qid = ? WHERE id IN ?";
+                        client.execute(query, [aid, media], function (err, result) {
+                            console.log(err);
+                        })
+                    }
+                    db.collection('answers').insertOne(answer, function () {
+                        res.json({status: "OK", id: aid});
+                    });
+                }
             }
         }
     }
