@@ -339,15 +339,11 @@ router.delete('/questions/:id', async function (req, res){
         console.log("got userData");
         req.params.user = userData.username;
         var ret = await helper.deleteQuestion(req, res);
-        console.log(ret);
-        if (ret.media){
-            console.log("media is not null");
-            var query = "DELETE FROM stackoverflow.media WHERE id = ?";
-            ret.media.forEach(function(media_id){
-                client.execute(query, [media_id], function(err, result){
-                    if (err) {console.log(err)}
-                });
-            })
+        if (ret.ids){
+            var query = "DELETE FROM stackoverflow.media WHERE qid IN ?";
+            client.execute(query, [ret.ids], function (err, result){
+                if (err) {console.log(err)}
+            });
         }
         res.json({status:ret.status});
     }
