@@ -170,7 +170,22 @@ router.post('/questions/add', async function (req, res, next) {
             var mediafailure = false;
             if (v.media && v.media.constructor === Array) {
                 media = v.media;
-                media.forEach(function (media_id) {
+                const query = 'SELECT uid, qid FROM stackoverflow.media WHERE id IN ? ';
+                var result = await client.execute(query, [media]);
+                if (!result || result.rows.length < media.length){
+                    res.status(404);
+                    mediafailure = true;
+                }
+                else{
+                    result.rows.forEach(function(row) {
+                        var uid = row.uid;
+                        var qid = row.qid;
+                        if (qid != null || uid !== user) {
+                            mediafailure = true;
+                        }
+                    })
+                }
+/*                media.forEach(function (media_id) {
                     const query = 'SELECT uid, qid FROM stackoverflow.media WHERE id = ? ';
                     client.execute(query, [media_id], function (err, result) {
                         if (err) {
@@ -190,7 +205,7 @@ router.post('/questions/add', async function (req, res, next) {
                             }
                         }
                     });
-                })
+                })*/
             }
             if (mediafailure) {
                 res.status(404);
