@@ -185,27 +185,6 @@ router.post('/questions/add', async function (req, res, next) {
                         }
                     })
                 }
-/*                media.forEach(function (media_id) {
-                    const query = 'SELECT uid, qid FROM stackoverflow.media WHERE id = ? ';
-                    client.execute(query, [media_id], function (err, result) {
-                        if (err) {
-                            res.status(404);
-                            mediafailure = true;
-                        }
-                        else {
-                            if (!result.rows[0]) {
-                                mediafailure = true;
-                            }
-                            else {
-                                var uid = result.rows[0].uid;
-                                var qid = result.rows[0].qid;
-                                if (qid != null || uid !== user) {
-                                    mediafailure = true;
-                                }
-                            }
-                        }
-                    });
-                })*/
             }
             if (mediafailure) {
                 res.status(404);
@@ -282,22 +261,43 @@ router.post('/questions/:id/answers/add', async function(req, res, next) {
         }
         else {
             var media = null;
-            if(v.media && v.media.constructor === Array) {
+            var mediafailure = false;
+            if (v.media && v.media.constructor === Array) {
                 media = v.media;
+                const query = 'SELECT uid, qid FROM stackoverflow.media WHERE id IN ? ';
+                var result = await client.execute(query, [media]);
+                if (!result || result.rows.length < media.length){
+                    res.status(404);
+                    mediafailure = true;
+                }
+                else{
+                    result.rows.forEach(function(row) {
+                        var uid = row.uid;
+                        var qid = row.qid;
+                        if (qid != null || uid !== user) {
+                            mediafailure = true;
+                        }
+                    })
+                }
             }
-            var answer = {
-                _id: aid,
-                questionId: qid,
-                user: userData.username,
-                body: req.body.body,
-                score: 0,
-                is_accepted: false,
-                timestamp: Date.now() / 1000,
-                media: media
+            if (mediafailure) {
+                res.status(404);
+                res.json({ status: "error", error: "Media does not belong to current user or media is already in use" });
+            } else {
+                var answer = {
+                    _id: aid,
+                    questionId: qid,
+                    user: userData.username,
+                    body: req.body.body,
+                    score: 0,
+                    is_accepted: false,
+                    timestamp: Date.now() / 1000,
+                    media: media
+                }
+                db.collection('answers').insertOne(answer, function () {
+                    res.json({status: "OK", id: aid});
+                });
             }
-            db.collection('answers').insertOne(answer, function () {
-                res.json({status: "OK", id: aid});
-            });
         }
     }
     else {
