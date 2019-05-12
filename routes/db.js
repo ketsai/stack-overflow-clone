@@ -238,7 +238,9 @@ router.post('/questions/add', async function (req, res, next) {
                 if (failedToUpdateMedia) {
                     res.status(400);
                     res.json({ status: "error", error: "Error in updating qid for media" });
-                } else {
+                }
+                else {
+                    res.json({ status: "OK", id: qid });
                     //insert each unique word in the body, title, and tags into inverted index to search
                     var text = v.title + " " + v.body;
                     text = text.toLowerCase().split(" ");
@@ -258,7 +260,6 @@ router.post('/questions/add', async function (req, res, next) {
                     //console.log(ops);
                     db.collection('index').bulkWrite(ops);
                     db.collection('questions').insertOne(question);
-                    res.json({ status: "OK", id: qid });
                 }
             }
         }
