@@ -442,7 +442,6 @@ router.post('/addmedia', upload.single('content'), async function (req, res){
     }
 })
 
-
 router.get('/media/:id', function(req, res){
     var media_id = req.params.id;
     const query = 'SELECT * FROM stackoverflow.media WHERE id = ? ';
@@ -473,6 +472,18 @@ router.get('/media/:id', function(req, res){
             }
         }
     });
+});
+
+router.get('/reset', function (req, res) {
+    db.collection('users').deleteMany({});
+    db.collection('sessions').deleteMany({});
+    db.collection('answers').deleteMany({});
+    db.collection('questions').deleteMany({});
+    db.collection('score').deleteMany({});
+    db.collection('index').deleteMany({});
+    const query = 'truncate stackoverflow.media';
+    client.execute(query, []);
+    res.json({status:'OK'});
 });
 
 module.exports = router;
