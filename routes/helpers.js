@@ -535,7 +535,7 @@ module.exports = {
                         })
                     });
                     checkOPPromise.then(function(result) {
-                        if (!result.status){
+                        if (!result || !result.status){
                             getAnswererPromise.then(function(result1){
                                 resolve(result1);
                             })
