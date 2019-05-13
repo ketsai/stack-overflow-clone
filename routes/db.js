@@ -191,6 +191,7 @@ router.post('/questions/add', async function (req, res, next) {
                 res.json({ status: "error", error: "Media does not belong to current user or media is already in use" });
             } else {
                 var qid = shortid.generate();
+                res.json({ status: "OK", id: qid });
                 var question = {
                     _id: qid,
                     title: v.title,
@@ -209,7 +210,6 @@ router.post('/questions/add', async function (req, res, next) {
                         console.log(err);
                     });
                 }
-                res.json({ status: "OK", id: qid });
                 //insert each unique word in the body, title, and tags into inverted index to search
                 var text = v.title + " " + v.body;
                 text = text.toLowerCase().split(" ");
