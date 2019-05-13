@@ -6,6 +6,7 @@ var morgan = require('morgan');
 var winston = require('winston');
 var expressWinston = require('express-winston');
 var cookieParser = require('cookie-parser');
+var bodyparser = require('body-parser');
 
 var mongodb = require('./mongodb');
 var dbRouter = require('./routes/db');
@@ -18,8 +19,8 @@ app.set('view engine', 'html');
 app.set('views', __dirname + '/views');
 app.use(express.static(__dirname + '/public'));
 app.use(morgan('combined', { stream: winston.stream.write }));
-app.use(express.json({limit:'100mb', extended: true}));
-app.use(express.urlencoded({limit:'100mb', extended: true}));
+app.use(bodyparser.json({limit:'100mb'}));
+app.use(bodyparser.urlencoded({limit:'100mb', extended: true, parameterLimit: 50000}));
 app.use(cookieParser());
 
 expressWinston.requestWhitelist.push('body');
