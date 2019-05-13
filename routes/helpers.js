@@ -1,21 +1,11 @@
 var mongoose = require('mongoose');
 var db = mongoose.connection;
+var memjs = require("memjs");
+var memcached = memjs.Client.create('192.168.193.248:11211');
 
 async function findWordDocs(word) {
     return new Promise(async function (resolve, reject) {
         await db.collection('index').findOne({ 'word': word }, function (err, ret) {
-            if (ret) {
-                resolve(ret.documents);
-            } else {
-                resolve([]);
-            }
-        });
-    });
-}
-
-async function findTagDocs(tag) {
-    return new Promise(async function (resolve, reject) {
-        await db.collection('tags').findOne({ 'word': word }, function (err, ret) {
             if (ret) {
                 resolve(ret.documents);
             } else {
@@ -93,32 +83,40 @@ module.exports = {
     getUserData: async function (req, res) {
         return new Promise(function (resolve, reject) { // Create promise for retrieving user data
             var session = req.cookies.session;
-            if (session) {
-                db.collection('sessions').findOne({ 'session': session }, function (err, ses) {
-                    if (err) return handleError(err);
-                    if (ses) {
-                        if (ses.expire < Date.now()) { // Session expired, remove from db
-                            console.log("Removing expired session.");
-                            db.collection('sessions').deleteOne({ 'session': session });
-                            res.clearCookie('session');
-                            resolve();
-                        }
-                        db.collection('users').findOne({ 'email': ses.email }, function (err, ret) {
-                            if (ret) { // User found
-                                resolve(ret);
-                            } else {
-                                resolve();
-                            }
-                        });
-                    } else { // Session not found
-                        console.log("Session could not be found. Removing cookie.");
-                        res.clearCookie('session');
-                        resolve();
-                    }
-                })
-            } else { // No session cookie
+            if (!session) {
                 console.log("No session cookie - no user logged in.");
                 resolve();
+            } else {
+                memcached.get(session, async function (err, ret) {
+                    if (ret) {
+                        //console.log("CACHE HIT: USER=" + ret.email);
+                        resolve(JSON.parse(ret));
+                    } else {
+                        db.collection('sessions').findOne({ 'session': session }, function (err, ses) {
+                            if (err) return handleError(err);
+                            if (ses) {
+                                if (ses.expire < Date.now()) { // Session expired, remove from db
+                                    console.log("Removing expired session.");
+                                    db.collection('sessions').deleteOne({ 'session': session });
+                                    res.clearCookie('session');
+                                    resolve();
+                                }
+                                db.collection('users').findOne({ 'email': ses.email }, function (err, user) {
+                                    if (user) { // User found
+                                        memcached.set(session, JSON.stringify(user), { expires: 1200 });
+                                        resolve(user)
+                                    } else {
+                                        resolve();
+                                    }
+                                });
+                            } else { // Session not found
+                                console.log("Session could not be found. Removing cookie.");
+                                res.clearCookie('session');
+                                resolve();
+                            }
+                        })
+                    }
+                });
             }
         });
     },

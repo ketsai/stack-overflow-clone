@@ -8,6 +8,8 @@ const client = new cassandra.Client({
     localDataCenter: 'datacenter1',
     keyspace: 'stackoverflow'
 });
+var memjs = require("memjs");
+var memcached = memjs.Client.create('192.168.193.248:11211');
 var crypto = require('crypto');
 var bcrypt = require('bcryptjs');
 var nodemailer = require('nodemailer');
@@ -91,8 +93,6 @@ router.post('/adduser', function (req, res, next) {
                                     expire: Date.now() + 24 * 60 * 60 * 1000 // Session expires after 24 hours
                                 }
                             );
-
-
                         }
                     }
                 });
@@ -108,7 +108,7 @@ router.post('/verify', function (req, res, next) {
     db.collection('users').findOne({ 'email': v.email }, function (err, ret) {
         if (err) return handleError(res,err);
         if (ret != null && (v.key == key || v.key == 'abracadabra')) { // Is the request key the same as email after salt and hash?
-            db.collection('users').updateOne({ 'email': v.email }, { $set: { verified: true }});
+            db.collection('users').updateOne({ 'email': v.email }, { $set: { verified: true } });
             res.json({ status: "OK", msg: 'Your account is now verified!' });
         } else {
             res.status(400);
@@ -154,6 +154,7 @@ router.post('/logout', function (req, res, next) {
     db.collection('sessions').deleteOne({ 'session': session });
     res.clearCookie('session');
     res.json({ status: "OK", msg: 'Logged out successfully' });
+    memcached.delete(session);
 });
 
 /*Add Question*/
