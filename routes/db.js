@@ -378,7 +378,7 @@ router.post('/answers/:id/upvote', async function (req, res) {
         req.params.user = userData.username;
         req.params.database = 'answers';
         var ret = await helper.getScore(req, res);
-
+        res.json(ret);
     }
 });
 
