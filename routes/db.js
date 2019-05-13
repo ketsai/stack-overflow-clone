@@ -241,8 +241,8 @@ router.post('/questions/add', async function (req, res, next) {
 router.post('/questions/:id/answers/add', async function(req, res, next) {
     var aid = shortid.generate();
     let userData = await helper.getUserData(req, res);
-    var user = userData.username;
     if (userData) {
+        var user = userData.username;
         var qid = req.params.id;
         var v = req.body;
         if (v.body == null) {
