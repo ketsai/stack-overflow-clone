@@ -421,7 +421,6 @@ module.exports = {
             var id = req.params.id;
             var username = req.params.user;
             var upvote = req.params.upvote;
-            var finalupvote = null;
             var database = req.params.database;
             if (!upvote){ upvote = true; }
             await db.collection(database).findOne({ '_id': id }, function (err, ret1) {
@@ -432,6 +431,7 @@ module.exports = {
                 else{
                     var upvotePromise = new Promise(async function (resolve, reject){
                         await db.collection('score').findOne({'_id': id}, function(err, ret2){
+                            var finalupvote = upvote;
                             if (!ret2){
                                 console.log("Item not in score collection");
                                 var upvotes = [];
@@ -461,31 +461,33 @@ module.exports = {
                                     finalupvote = true;
                                 }
                                 else{
+                                    console.log("User not in upvotes");
                                     if (upvote){ upvotes.push(username); }
                                     else{ downvotes.push(username); }
                                 }
                                 db.collection('score').updateOne({'_id': id}, {$set : {upvotes: upvotes, downvotes: downvotes}});
-                                resolve({score: upvotes.length - downvotes.length})
+                                resolve({score: upvotes.length - downvotes.length, upvote: finalupvote},)
                             }
                         })
                     });
-                    var reputationPromise = new Promise(async function(resolve, reject){
+                    var getUserPromise = new Promise(async function(resolve, reject){
                         await db.collection('users').findOne({'username': ret1.user}, function(err, ret3) {
-                            if (finalupvote == null) {
-                                if (upvote) { ret3.reputation += 1; }
-                                else { if (ret3.reputation > 1) { ret3.reputation -= 1; } }
-                            }
-                            else{
-                                if (finalupvote) { ret3.reputation += 1; }
-                                else { if (ret3.reputation > 1) { ret3.reputation -= 1; } }
-                            }
-                            db.collection('users').updateOne({ email: ret3.email }, { $set: { reputation: ret3.reputation } });
-                            resolve();
+                            resolve({email: ret3.email, reputation: ret3.reputation});
                         })
                     })
                     upvotePromise.then(function(result){
                         db.collection('questions').updateOne({ _id: id }, { $set: { score: result.score }});
-                        reputationPromise.then(function (result1){
+                        getUserPromise.then(function (result1){
+                            var rep = result1.reputation;
+                            if (result.upvote == true){
+                                rep += 1;
+                            }
+                            else {
+                                rep -= 1;
+                            }
+                            if (rep > 1){
+                                db.collection('users').updateOne({email: result1.email}, {$set: { reputation: rep}});
+                            }
                             resolve({status: "OK"});
                         })
                     })
