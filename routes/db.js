@@ -473,6 +473,7 @@ router.get('/reset', function (req, res) {
     db.collection('index').deleteMany({});
     const query = 'truncate stackoverflow.media';
     client.execute(query, []);
+    memcached.flush();
     res.json({status:'OK'});
 });
 

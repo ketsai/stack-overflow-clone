@@ -87,7 +87,7 @@ module.exports = {
                 console.log("No session cookie - no user logged in.");
                 resolve();
             } else {
-                memcached.get(session, async function (err, ret) {
+                memcached.get(session, function (err, ret) {
                     if (ret) {
                         //console.log("CACHE HIT: USER=" + ret.email);
                         resolve(JSON.parse(ret));
