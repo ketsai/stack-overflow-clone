@@ -485,7 +485,7 @@ module.exports = {
                             else {
                                 rep -= 1;
                             }
-                            if (rep > 1){
+                            if (rep >= 1){
                                 db.collection('users').updateOne({email: result1.email}, {$set: { reputation: rep}});
                             }
                             resolve({status: "OK"});
