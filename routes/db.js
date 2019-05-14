@@ -109,7 +109,7 @@ router.post('/verify', function (req, res, next) {
         if (err) return handleError(res,err);
         if (ret != null && (v.key == key || v.key == 'abracadabra')) { // Is the request key the same as email after salt and hash?
             db.collection('users').updateOne({ 'email': v.email }, { $set: { verified: true } });
-            res.json({ status: "OK", msg: 'Your account is now verified!' });
+            res.json({ status: "OK", msg: 'Your account is now verified! <a href="/">Return to home page</a>.' });
         } else {
             res.status(400);
             res.json({ status: "error", error: 'Invalid verification key' });
@@ -137,7 +137,8 @@ router.post('/login', function (req, res, next) {
                         expire: Date.now() + 24 * 60 * 60 * 1000 // Session expires after 24 hours
                     }, function () {
                         res.cookie('session', session);
-                        res.json({ status: "OK", msg: 'Logged in successfully' });
+                        res.json({
+                            status: "OK", msg: 'Logged in successfully. <a href="/">Return to home page</a>.' });
                     }
                 );
             });

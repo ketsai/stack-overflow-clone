@@ -1,8 +1,20 @@
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-<link rel="stylesheet" type="text/css" href="../stylesheets/adduser.css" />
-<script src="../scripts/adduser.js"></script>
+<link rel="stylesheet" type="text/css" href="../stylesheets/home.css" />
 
-<h3>Account creation</h3>
+<script>
+    $.ajax({
+        url: "/questions/" + <% - qid %>,
+        method: "GET",
+        success: function (response) {
+            if (response) {
+                $("#title").html(response.title);
+            }
+        }
+    });
+    console.log(window);
+</script>
+
+<h3 id="title"></h3>
 <table align="center">
     <tr>
         <td>Email Address</td>

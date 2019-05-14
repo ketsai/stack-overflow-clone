@@ -7,7 +7,11 @@ $(document).ready(function () {
             success: function (response) {
                 if (response.msg != null) {
                     $("#msg").html(response.msg);
-                } else if (response.error != null) {
+                }  
+            },
+            error: function (response) {
+                response = response.responseJSON;
+                if (response.error != null) {
                     $("#msg").html(response.error);
                 }
             }
